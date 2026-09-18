@@ -121,12 +121,12 @@ export const Header: React.FC<HeaderProps> = ({
       className="min-h-16 py-2 bg-white border-b border-sky-100 px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0 select-none z-30 relative"
     >
       {/* Seletor de Ocorrência / Dossiê Ativo */}
-      <div className="flex items-center gap-3 min-w-0 shrink overflow-hidden" ref={dropdownRef}>
+      <div className="flex items-center gap-2 min-w-0 shrink" ref={dropdownRef}>
         <div className="relative">
           <button
             type="button"
             onClick={() => setDropdownOpen(prev => !prev)}
-            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-left transition-all cursor-pointer min-w-0 max-w-[30vw] ${
+            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-left transition-all cursor-pointer min-w-0 max-w-[30vw] overflow-hidden ${
               ocorrencia
                 ? 'bg-slate-50/80 hover:bg-slate-100 border-slate-200'
                 : 'bg-sky-50 hover:bg-sky-100 border-sky-200 text-sky-900'
@@ -301,6 +301,23 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
         </div>
+
+        {/* Excluir o dossiê ativo. Fica ao lado do seletor: ação destrutiva
+            pertence junto do objeto sobre o qual age, não no canto oposto. */}
+        {ocorrencia && (
+          <button
+            type="button"
+            onClick={() => {
+              setDropdownOpen(false);
+              onDeleteOcorrencia(ocorrencia.input.id);
+            }}
+            title={`Excluir o dossiê ${ocorrencia.input.id} da aplicação`}
+            aria-label={`Excluir o dossiê ${ocorrencia.input.id} da aplicação`}
+            className="shrink-0 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Condições Meteorológicas & Ações Rápidas */}
@@ -388,15 +405,6 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Exportar Laudo</span>
             </button>
 
-            {/* Excluir Ocorrência Atual */}
-            <button
-              type="button"
-              title="Excluir este dossiê da aplicação"
-              onClick={() => onDeleteOcorrencia(ocorrencia.input.id)}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
           </>
         )}
 
