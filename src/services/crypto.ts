@@ -128,10 +128,15 @@ export async function calculateSha256(text: string): Promise<string> {
  * "NAO" — falsa negativa assinada criptograficamente. V2 admite NAO_VERIFICADO e lista
  * em DATA_SOURCES apenas as fontes que efetivamente responderam.
  *
- * Blocos V1 continuam validáveis: `verifyCustodyIntegrity` recomputa o hash a partir da
- * string canônica informada, seja ela V1 ou V2.
+ * V3 (2026-09-18): o campo `AIA_REINCIDENCIA` afirmava uma CONCLUSÃO JURÍDICA que o
+ * sistema não apura — reincidência exige que o autuado seja o mesmo responsável pela
+ * gleba. O que a consulta apura é a existência de autos NO ENTORNO, e o campo passa a
+ * chamar-se `AIA_ENTORNO`. Acrescentado `BOI_INCENDIO` (registro oficial de incêndio).
+ *
+ * Blocos V1 e V2 continuam validáveis: `verifyCustodyIntegrity` recomputa o hash a
+ * partir da string canônica informada, qualquer que seja a versão.
  */
-export const VERSAO_CUSTODIA = 'SIMIA-CUSTODIA-V2';
+export const VERSAO_CUSTODIA = 'SIMIA-CUSTODIA-V3';
 
 /**
  * Monta o payload canônico determinístico:

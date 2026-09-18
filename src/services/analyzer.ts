@@ -182,6 +182,32 @@ export async function processarOcorrencia(
     }))
   };
 
+  /*
+   * Boletins de Ocorrência de Incêndio florestal no entorno.
+   *
+   * Cuidado pericial: um BOI próximo NÃO é, por si, o incêndio desta ocorrência.
+   * São registros no raio consultado, e o raio vai declarado. Quando a data de
+   * detecção de um BOI coincide com a data do fato, isso é sinalizado como
+   * correspondência A CONFIRMAR — nunca como identidade estabelecida.
+   */
+  const diaDoFato = input.timestampUtc.slice(0, 10);
+  const boiNoMesmoDia = incendiosResult.registros.find(
+    b => b.dataDeteccaoUtc && b.dataDeteccaoUtc.slice(0, 10) === diaDoFato
+  );
+
+  const incendiosDetalhes = incendiosResult.registros.slice(0, 8).map(b => ({
+    numeroBoi: b.numeroBoi ?? 'Número não informado pela fonte',
+    dataDeteccao: b.dataDeteccaoUtc ? b.dataDeteccaoUtc.slice(0, 10) : 'Data não informada pela fonte',
+    municipio: b.municipio ?? 'Município não informado',
+    caracterizacaoArea: b.caracterizacaoArea ?? 'Não caracterizada pela fonte',
+    abrangenciaUnidade: b.abrangenciaUnidade ?? 'Não informada',
+    orgaoGestor: b.orgaoGestor ?? 'Não informado'
+  }));
+
+  const incidenciaEmUnidade = incendiosResult.registros.some(
+    b => typeof b.abrangenciaUnidade === 'string' && b.abrangenciaUnidade.trim() !== ''
+  );
+
   // Prioriza a área de maior consequência jurídica: TI e UC federal deslocam competência.
   const areaProtegidaPrincipal =
     areasProtegidas.areas.find(a => a.tipo === 'TERRA_INDIGENA')
@@ -326,6 +352,51 @@ export async function processarOcorrencia(
             + 'responderam à consulta espacial e a coordenada NÃO incide em nenhum perímetro. '
             + 'Reservas particulares (RPPN) e zonas de amortecimento não foram verificadas.'
     },
+    /**
+     * INCÊNDIOS OFICIAIS — Boletins de Ocorrência lavrados pelo órgão ambiental.
+     * Terceira natureza de evidência, ao lado da detecção orbital (anomalia térmica
+     * medida) e da projeção do modelo (estimativa): aqui há um incêndio APURADO e
+     * registrado por autoridade, com número de boletim citável no laudo.
+     */
+    incendiosOficiais: {
+      valor: {
+        registrosEncontrados: incendiosResult.registros.length > 0,
+        quantidade: incendiosResult.quantidade,
+        raioMetros: RAIO_BOI_METROS,
+        incidenciaEmUnidade,
+        possivelCorrespondenciaComOFato: boiNoMesmoDia?.numeroBoi ?? null,
+        detalhes: incendiosDetalhes
+      },
+      fonte: incendiosResult.sucesso
+        ? incendiosResult.fonte
+        : 'Não consultada — SIGAMgeo indisponível',
+      camada: 'SIPAI_BOI_AREA_PUBLICO',
+      confiabilidade: incendiosResult.sucesso ? 'REAL' : 'INDISPONIVEL',
+      dataConsultaUtc: incendiosResult.consultadoEmUtc || new Date().toISOString(),
+      observacoes: !incendiosResult.sucesso
+        ? `Consulta aos Boletins de Ocorrência de Incêndio NÃO realizada `
+          + `(${incendiosResult.mensagem || 'fonte indisponível'}). `
+          + (incendiosResult.orientacaoOperador
+             || 'A existência de registro oficial de incêndio no local não foi verificada.')
+        : incendiosResult.registros.length === 0
+          ? `O SIGAMgeo respondeu e não retornou Boletim de Ocorrência de Incêndio num raio de `
+            + `${RAIO_BOI_METROS} m. A ausência de BOI NÃO significa ausência de incêndio: o `
+            + `boletim depende de acionamento e lavratura pelo órgão.`
+          : `${incendiosResult.quantidade} Boletim(ns) de Ocorrência de Incêndio florestal num raio `
+            + `de ${RAIO_BOI_METROS} m da coordenada. `
+            + (boiNoMesmoDia
+                ? `ATENÇÃO — o BOI ${boiNoMesmoDia.numeroBoi} tem data de detecção coincidente com a `
+                  + `data do fato: POSSÍVEL CORRESPONDÊNCIA, a confirmar junto ao órgão gestor antes `
+                  + `de afirmar identidade entre os eventos. `
+                : 'Nenhum boletim com data coincidente à do fato — os registros abaixo são do entorno '
+                  + 'e não se confundem com esta ocorrência. ')
+            + (incidenciaEmUnidade
+                ? 'Há registro com incidência em unidade de conservação ou zona de amortecimento — '
+                  + 'verificar o Art. 40 da Lei 9.605/98. '
+                : '')
+            + 'Recorrência de incêndio no mesmo local é elemento de convicção sobre previsibilidade '
+            + 'do risco; requisitar os boletins ao órgão gestor.'
+    },
     car: {
       valor: {
         inscrito: false,
@@ -405,7 +476,20 @@ export async function processarOcorrencia(
           + `Requisitar os autos para identificar o autuado e averiguar embargo ou sanção vigente. `
           + `ATENÇÃO: proximidade não estabelece reincidência do responsável por esta gleba.`
         : `Vistoriar in loco a existência, manutenção e largura dos aceiros perimetrais obrigatórios nos limites da propriedade e com faixas de servidão.`,
-      orientacaoColetaVestigios: `Preservar o vértice em V do foco inicial para determinação do ponto de ignição primário. Coletar amostras de solo/fuligem caso haja indícios de uso de acelerantes de combustão.`
+      orientacaoColetaVestigios: `Preservar o vértice em V do foco inicial para determinação do ponto `
+        + `de ignição primário. Coletar amostras de solo/fuligem caso haja indícios de uso de `
+        + `acelerantes de combustão.`
+        + (contexto.incendiosOficiais.valor.registrosEncontrados
+            ? ` HISTÓRICO DE INCÊNDIO NO LOCAL: constam ${contexto.incendiosOficiais.valor.quantidade} `
+              + `Boletim(ns) de Ocorrência de Incêndio num raio de ${RAIO_BOI_METROS} m `
+              + `(${contexto.incendiosOficiais.valor.detalhes.slice(0, 3).map(b => b.numeroBoi).join(', ')}). `
+              + `Requisitar os boletins ao órgão gestor: recorrência de fogo no mesmo local sustenta a `
+              + `previsibilidade do risco e é elemento de convicção quanto ao dolo eventual.`
+            + (contexto.incendiosOficiais.valor.possivelCorrespondenciaComOFato
+                ? ` O BOI ${contexto.incendiosOficiais.valor.possivelCorrespondenciaComOFato} tem data `
+                  + `coincidente com a do fato — confirmar se documenta esta mesma ocorrência.`
+                : '')
+            : '')
     }
   };
 
@@ -418,6 +502,7 @@ export async function processarOcorrencia(
   if (contexto.app.confiabilidade === 'INDISPONIVEL') camadasNaoVerificadas.push('sobreposição com Área de Preservação Permanente');
   if (contexto.vegetacaoNativa.confiabilidade === 'INDISPONIVEL') camadasNaoVerificadas.push('cobertura vegetal, bioma e estágio sucessional');
   if (contexto.unidadeConservacao.confiabilidade === 'INDISPONIVEL') camadasNaoVerificadas.push('incidência em Unidade de Conservação ou Terra Indígena');
+  if (contexto.incendiosOficiais.confiabilidade === 'INDISPONIVEL') camadasNaoVerificadas.push('registro oficial de incêndio (BOI) no local');
   if (contexto.car.confiabilidade === 'INDISPONIVEL') camadasNaoVerificadas.push('vinculação do imóvel no CAR');
   if (meteo.confiabilidade === 'INDISPONIVEL') camadasNaoVerificadas.push('condições meteorológicas do momento do fato');
 
@@ -547,9 +632,12 @@ export async function processarOcorrencia(
     c === 'INDISPONIVEL' ? 'NAO_VERIFICADO' : positivo ? 'SIM' : 'NAO';
 
   const sigamgeoString =
-    `AIA_REINCIDENCIA=${estadoCamada(contexto.aia.confiabilidade, aiaHistorico.historicoEncontrado)};`
+    // AIA_ENTORNO, não AIA_REINCIDENCIA: o que se apura é a existência de autos no raio
+    // consultado. Reincidência é conclusão jurídica que depende do responsável pela gleba.
+    `AIA_ENTORNO=${estadoCamada(contexto.aia.confiabilidade, aiaHistorico.historicoEncontrado)};`
     + `APP_PRESENTE=${estadoCamada(contexto.app.confiabilidade, contexto.app.valor.sobreposicao)};`
-    + `UC_TI_INCIDENCIA=${estadoCamada(contexto.unidadeConservacao.confiabilidade, contexto.unidadeConservacao.valor.afetada)}`;
+    + `UC_TI_INCIDENCIA=${estadoCamada(contexto.unidadeConservacao.confiabilidade, contexto.unidadeConservacao.valor.afetada)};`
+    + `BOI_INCENDIO=${estadoCamada(contexto.incendiosOficiais.confiabilidade, contexto.incendiosOficiais.valor.registrosEncontrados)}`;
 
   // Apenas as fontes que efetivamente responderam entram na cadeia de custódia.
   const fontesEfetivas: string[] = [];
@@ -557,7 +645,8 @@ export async function processarOcorrencia(
   if (focosInpeResult.sucesso) fontesEfetivas.push('INPE_BDQUEIMADAS_WFS');
   if (areasProtegidas.verificacaoCompleta) fontesEfetivas.push('INPE_TI_UC_WFS');
   if (geoFeatures.sucesso) fontesEfetivas.push('OSM_OVERPASS');
-  if (sigamResult.sucesso) fontesEfetivas.push('DATAGEO_WFS');
+  if (sigamResult.sucesso) fontesEfetivas.push('SIGAMGEO_AIA');
+  if (incendiosResult.sucesso) fontesEfetivas.push('SIGAMGEO_BOI');
   const dataSourcesString = fontesEfetivas.length > 0
     ? fontesEfetivas.join('+')
     : 'NENHUMA_FONTE_RESPONDEU';

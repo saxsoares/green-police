@@ -392,6 +392,53 @@ export const ReportView: React.FC<ReportViewProps> = ({ ocorrencia }) => {
                     </td>
                   </tr>
                   <tr>
+                    <td className="p-2.5 font-medium text-slate-900">Incêndios oficiais (BOI)</td>
+                    <td className="p-2.5">
+                      {ocorrencia.contexto.incendiosOficiais.confiabilidade === 'INDISPONIVEL' ? (
+                        <span className="text-red-700 font-medium">
+                          NÃO VERIFICADO — consulta aos Boletins de Ocorrência de Incêndio não realizada.
+                        </span>
+                      ) : !ocorrencia.contexto.incendiosOficiais.valor.registrosEncontrados ? (
+                        <span className="text-slate-500">
+                          O órgão respondeu e não registrou boletim num raio de{' '}
+                          {ocorrencia.contexto.incendiosOficiais.valor.raioMetros} m. Ausência de BOI
+                          não é ausência de incêndio — o boletim depende de acionamento e lavratura.
+                        </span>
+                      ) : (
+                        <div className="space-y-1">
+                          <span className="font-semibold text-amber-800">
+                            {ocorrencia.contexto.incendiosOficiais.valor.quantidade} boletim(ns) num raio de{' '}
+                            {ocorrencia.contexto.incendiosOficiais.valor.raioMetros} m
+                          </span>
+                          <div className="text-[11px] text-slate-600">
+                            {ocorrencia.contexto.incendiosOficiais.valor.detalhes.map(b => (
+                              <div key={b.numeroBoi}>
+                                • BOI {b.numeroBoi} ({b.dataDeteccao}): {b.caracterizacaoArea}
+                                {b.abrangenciaUnidade !== 'Não informada' && ` — ${b.abrangenciaUnidade}`}
+                              </div>
+                            ))}
+                          </div>
+                          {/* Correspondência com o fato é HIPÓTESE a confirmar, nunca identidade estabelecida. */}
+                          {ocorrencia.contexto.incendiosOficiais.valor.possivelCorrespondenciaComOFato ? (
+                            <div className="text-[11px] text-rose-700 font-medium">
+                              POSSÍVEL CORRESPONDÊNCIA com o fato: BOI{' '}
+                              {ocorrencia.contexto.incendiosOficiais.valor.possivelCorrespondenciaComOFato} tem
+                              data de detecção coincidente. Confirmar junto ao órgão gestor antes de
+                              afirmar identidade entre os eventos.
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-slate-500">
+                              Nenhum boletim com data coincidente à do fato — registros do entorno.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-2.5 font-mono text-[10px] text-sky-700 font-semibold">
+                      [{ocorrencia.contexto.incendiosOficiais.confiabilidade}]
+                    </td>
+                  </tr>
+                  <tr>
                     <td className="p-2.5 font-medium text-slate-900">Cadastro Rural (CAR)</td>
                     <td className="p-2.5">
                       {ocorrencia.contexto.car.confiabilidade === 'INDISPONIVEL' ? (

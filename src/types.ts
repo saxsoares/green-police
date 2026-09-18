@@ -77,6 +77,31 @@ export interface ContextoAmbiental {
     nomeUC?: string;
     distanciaKm: number;
   }>;
+  /**
+   * Boletins de Ocorrência de Incêndio florestal lavrados pelo órgão ambiental
+   * (SIGAMgeo/SEMIL-SP) num raio da coordenada.
+   *
+   * É registro OFICIAL de incêndio — distinto da detecção orbital (que mostra anomalia
+   * térmica) e da projeção do modelo (que é estimativa). NÃO afirma que se trata do
+   * mesmo incêndio da ocorrência: são registros no entorno, e o raio é declarado.
+   */
+  incendiosOficiais: ItemContexto<{
+    registrosEncontrados: boolean;
+    quantidade: number;
+    raioMetros: number;
+    /** Algum BOI do entorno marca incidência em UC ou zona de amortecimento. */
+    incidenciaEmUnidade: boolean;
+    /** BOI cuja data de detecção coincide com a data do fato — correspondência A CONFIRMAR. */
+    possivelCorrespondenciaComOFato: string | null;
+    detalhes: Array<{
+      numeroBoi: string;
+      dataDeteccao: string;
+      municipio: string;
+      caracterizacaoArea: string;
+      abrangenciaUnidade: string;
+      orgaoGestor: string;
+    }>;
+  }>;
   car: ItemContexto<{
     inscrito: boolean;
     codigoCar: string;

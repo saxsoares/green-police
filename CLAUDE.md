@@ -191,6 +191,12 @@ ao operador — **não preencha com valor plausível**:
 
 ## 8. Pontos sensíveis
 
+- [crypto.ts](src/services/crypto.ts) — o payload canônico está na **V3**. Histórico: V2 trocou os
+  binários SIM/NAO por NAO_VERIFICADO (V1 certificava falsa negativa); V3 renomeou
+  `AIA_REINCIDENCIA` para `AIA_ENTORNO`, porque o campo afirmava uma conclusão jurídica que o
+  sistema não apura, e acrescentou `BOI_INCENDIO`. **Nome de campo no payload é afirmação
+  certificada pelo hash** — se o nome promete mais do que a consulta apura, o hash assina um
+  excesso. Versões antigas seguem validáveis: o validador recomputa a partir da string informada.
 - [crypto.ts](src/services/crypto.ts) — a string canônica e o SHA-256 são **determinísticos e
   auditáveis**. Alterar a ordem dos campos, o separador ` | ` ou o `trim()` invalida retroativamente
   todos os laudos já emitidos. Mudança aqui exige versionamento explícito do bloco de custódia.

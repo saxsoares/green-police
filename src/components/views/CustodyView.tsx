@@ -133,7 +133,7 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ ocorrencia }) => {
               {custodia.canonicalString}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              Campos canônicos: STAMP_UTC | GEO_REF | CADASTRO_CAR | HISTORICO_SIGAMGEO | DATA_SOURCES | OPERATOR_ID
+              Campos canônicos: VERSAO | STAMP_UTC | GEO_REF | CADASTRO_CAR | HISTORICO_SIGAMGEO | DATA_SOURCES | OPERATOR_ID
             </p>
           </div>
 
