@@ -383,7 +383,7 @@ SIMIA_DEV_PORT=5173
 | **NASA FIRMS** | ⚠️ Requer chave | Gratuita; sem ela o sistema opera com as demais fontes |
 | **INPE BDQueimadas** | ✅ Operacional | Via **GeoServer OGC** do TerraBrasilis. Entrega FRP, bioma, vegetação, risco de fogo, dias sem chuva e séries históricas de 2020 a 2025. |
 | **INPE — Terras Indígenas e UCs** | ✅ Operacional | Consulta espacial nos polígonos oficiais da FUNAI e do MMA: determina incidência e competência federal. |
-| **DATAGEO / SIGAMgeo (SP)** | ❌ **Fora do ar** | O GeoServer responde `Service WFS is disabled`. O histórico de AIA deve ser obtido por certidão junto à CETESB/SEMIL. |
+| **SIGAMgeo Público (SEMIL-SP)** | ✅ Operacional | Via ArcGIS REST. 571.769 Autos de Infração Ambiental da Polícia Ambiental e Boletins de Ocorrência de Incêndio florestal. Cobertura restrita a São Paulo. |
 
 **Quando uma fonte está fora do ar, o sistema declara a camada como `INDISPONIVEL`** e orienta o
 operador sobre como verificar manualmente. Ele **nunca** preenche a lacuna com um valor plausível,

@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { consultarAreasProtegidas, consultarFocos, isoDeAquisicaoFirms } from './server/inpeWfs';
+import { consultarAia, consultarBoiIncendio, dentroDeSaoPaulo } from './server/sigamgeo';
 import {
   consultarFonte,
   gravarCacheFonte,
@@ -504,126 +505,150 @@ app.get('/api/osm-overpass', async (req, res) => {
   }
 });
 
-// 5. Consulta WFS DATAGEO / SEMIL-SP
-app.get('/api/sigamgeo-wfs', async (req, res) => {
-  try {
-    const { lat, lng } = req.query;
-    if (!lat || !lng) {
-      return res.status(400).json({ error: 'lat e lng são obrigatórios' });
-    }
+// 5. SIGAMgeo PÚBLICO — SEMIL/SP (ArcGIS REST)
+//
+// Substitui o WFS do DATAGEO, desativado na origem. Duas camadas:
+//   /api/sigamgeo/aia        — Autos de Infração Ambiental (Polícia Ambiental)
+//   /api/sigamgeo/incendios  — Boletins de Ocorrência de Incêndio florestal
+//
+// O raio de busca é SEMPRE devolvido ao cliente: "reincidência" só tem sentido
+// pericial se a distância considerada estiver explícita no laudo.
 
-    const nLat = parseFloat(lat as string);
-    const nLng = parseFloat(lng as string);
+function validarCoordenadaSp(req: any, res: any): { lat: number; lng: number } | null {
+  const lat = parseFloat(req.query.lat as string);
+  const lng = parseFloat(req.query.lng as string);
 
-    if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) {
-      return res.status(400).json({ sucesso: false, erro: 'Coordenadas não numéricas' });
-    }
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    res.status(400).json({ sucesso: false, erro: 'Coordenadas não numéricas' });
+    return null;
+  }
 
-    // COBERTURA: o DATAGEO é a IDE do Estado de São Paulo. Fora de SP a camada
-    // simplesmente não existe — e "não existe base" é diferente de "não há autuação".
-    // Bounding box continental aproximado de SP.
-    const dentroDeSP = nLat >= -25.4 && nLat <= -19.7 && nLng >= -53.2 && nLng <= -44.1;
-    if (!dentroDeSP) {
-      return res.json({
-        sucesso: false,
-        disponivel: false,
-        foraDeCobertura: true,
-        fonte: 'DATAGEO / SEMIL-SP (WFS)',
-        motivo: 'FORA_DE_COBERTURA',
-        consultadoEmUtc: new Date().toISOString(),
-        mensagem: 'A base DATAGEO/SIGAMgeo cobre exclusivamente o Estado de São Paulo. '
-          + 'A coordenada informada está fora dessa cobertura.',
-        orientacaoOperador: 'Consulte o histórico de autuação ambiental no órgão estadual competente '
-          + 'da UF do fato e no SICAFI/IBAMA. A ausência de registro nesta tela NÃO significa ausência '
-          + 'de autuação anterior.',
-        registros: []
-      });
-    }
-
-    // ORDEM DE EIXOS: em WFS 1.1.0 com CRS na forma URN (urn:ogc:def:crs:EPSG::4326),
-    // a ordem obrigatória é LATITUDE,LONGITUDE — e não lon,lat. A versão anterior
-    // enviava lon,lat, o que transpunha a consulta para o Atlântico Sul e fazia a
-    // camada de AIA retornar vazio SEMPRE.
-    const delta = 0.005; // ~555 m em latitude
-    const bbox = [
-      (nLat - delta).toFixed(6),
-      (nLng - delta).toFixed(6),
-      (nLat + delta).toFixed(6),
-      (nLng + delta).toFixed(6),
-      'urn:ogc:def:crs:EPSG::4326'
-    ].join(',');
-
-    const wfsUrl = 'https://datageo.ambiente.sp.gov.br/geoserver/wfs'
-      + '?service=WFS&version=1.1.0&request=GetFeature'
-      + '&typeName=fiscalizacao_aia_sp'
-      + `&bbox=${encodeURIComponent(bbox)}`
-      + '&outputFormat=application/json';
-
-    // Lido como texto para podermos extrair o motivo real de um ows:ExceptionReport —
-    // o GeoServer responde HTTP 200 com XML de exceção, não com erro HTTP.
-    const bruto = await consultarFonte<string>({
-      url: wfsUrl,
-      fonte: 'DATAGEO / SEMIL-SP (WFS)',
-      timeoutMs: 8000,
-      formato: 'texto'
+  // O SIGAMgeo cobre exclusivamente São Paulo. Fora dele, "não há registro" e
+  // "esta base não cobre esta UF" são coisas diferentes — e a segunda é a verdadeira.
+  if (!dentroDeSaoPaulo(lat, lng)) {
+    res.json({
+      sucesso: false,
+      disponivel: false,
+      foraDeCobertura: true,
+      fonte: 'SIGAMgeo Público — SEMIL/SP',
+      motivo: 'FORA_DE_COBERTURA',
+      consultadoEmUtc: new Date().toISOString(),
+      mensagem: 'O SIGAMgeo cobre exclusivamente o Estado de São Paulo. A coordenada '
+        + 'informada está fora dessa cobertura.',
+      orientacaoOperador: 'Consulte o órgão ambiental estadual da UF do fato e o SICAFI/IBAMA. '
+        + 'A ausência de registro nesta tela NÃO significa ausência de autuação anterior.',
+      registros: []
     });
+    return null;
+  }
 
-    let r: any = bruto;
-    if (bruto.sucesso) {
-      const texto = bruto.dados.trim();
-      const excecao = /<ows:ExceptionText>([\s\S]*?)<\/ows:ExceptionText>/i.exec(texto);
-      if (excecao) {
-        r = {
-          sucesso: false,
-          erro: `GeoServer recusou a consulta: ${excecao[1].trim().split('\n')[0]}`,
-          motivo: 'HTTP',
-          fonte: bruto.fonte,
-          consultadoEmUtc: bruto.consultadoEmUtc
-        };
-      } else {
-        try {
-          const json = JSON.parse(texto);
-          r = { sucesso: true, dados: json, fonte: bruto.fonte, consultadoEmUtc: bruto.consultadoEmUtc };
-        } catch {
-          r = {
-            sucesso: false,
-            erro: 'DATAGEO respondeu HTTP 200 com conteúdo que não é JSON nem exceção OWS reconhecível',
-            motivo: 'FORMATO',
-            fonte: bruto.fonte,
-            consultadoEmUtc: bruto.consultadoEmUtc
-          };
-        }
-      }
+  return { lat, lng };
+}
+
+app.get('/api/sigamgeo/aia', async (req, res) => {
+  try {
+    const c = validarCoordenadaSp(req, res);
+    if (!c) return;
+
+    const raioMetros = Math.min(
+      Math.max(parseInt((req.query.raioMetros as string) || '2000', 10) || 2000, 100),
+      50000
+    );
+
+    const chave = `sigam:aia:${c.lat.toFixed(4)}:${c.lng.toFixed(4)}:${raioMetros}`;
+    const emCache = lerCacheFonte(chave);
+    if (emCache) {
+      return res.json({ ...emCache.payload, cacheHit: true, idadeCacheSegundos: emCache.idadeSegundos });
     }
+
+    const r = await consultarAia({ lat: c.lat, lng: c.lng, raioMetros });
 
     if (!r.sucesso) {
-      registrarFalhaFonte('/api/sigamgeo-wfs', r.erro);
+      registrarFalhaFonte('/api/sigamgeo/aia', r.erro);
       return res.status(502).json(respostaIndisponivel({
         fonte: r.fonte,
         erro: r.erro,
         motivo: r.motivo,
         consultadoEmUtc: r.consultadoEmUtc,
-        orientacaoOperador: 'O WFS do DATAGEO não respondeu. O histórico de Auto de Infração Ambiental '
-          + 'NÃO foi verificado para esta coordenada. Consulte manualmente em '
-          + 'datageo.ambiente.sp.gov.br ou requisite certidão à CETESB/SEMIL antes de afirmar '
-          + 'ausência de reincidência no laudo.'
+        orientacaoOperador: 'O SIGAMgeo não respondeu. O histórico de Auto de Infração Ambiental '
+          + 'NÃO foi verificado para esta coordenada. Consulte mapas.semil.sp.gov.br ou requisite '
+          + 'certidão à CETESB/SEMIL antes de afirmar ausência de reincidência no laudo.'
       }));
     }
 
-    const registros = r.dados.features || [];
-    return res.json({
+    const payload = {
       sucesso: true,
       fonte: r.fonte,
       consultadoEmUtc: r.consultadoEmUtc,
-      quantidade: registros.length,
-      registros,
-      mensagem: registros.length === 0
-        ? 'O WFS do DATAGEO respondeu à consulta e não retornou Auto de Infração Ambiental '
-          + 'no raio de ~500 m da coordenada, nas camadas públicas abertas.'
-        : undefined
-    });
+      raioMetros,
+      quantidade: r.dados.autos.length,
+      totalNoRaio: r.dados.totalNoRaio,
+      truncado: r.dados.truncado,
+      registros: r.dados.autos,
+      mensagem: r.dados.totalNoRaio === 0
+        ? `O SIGAMgeo respondeu à consulta e não retornou Auto de Infração Ambiental num raio `
+          + `de ${raioMetros} m da coordenada.`
+        : undefined,
+      // LGPD: o nome do autuado é dado pessoal e sai apenas em forma reduzida.
+      notaLgpd: 'Autuados exibidos de forma anonimizada. A identificação plena se dá por '
+        + 'requisição formal da autoridade policial, pelo número do processo.'
+    };
+
+    gravarCacheFonte(chave, payload, 10 * 60 * 1000);
+    return res.json({ ...payload, cacheHit: false });
   } catch (err: any) {
-    registrarFalhaFonte('/api/sigamgeo-wfs', err);
+    registrarFalhaFonte('/api/sigamgeo/aia', err);
+    return res.status(500).json({ sucesso: false, erro: mascararSegredos(err.message), registros: [] });
+  }
+});
+
+app.get('/api/sigamgeo/incendios', async (req, res) => {
+  try {
+    const c = validarCoordenadaSp(req, res);
+    if (!c) return;
+
+    const raioMetros = Math.min(
+      Math.max(parseInt((req.query.raioMetros as string) || '5000', 10) || 5000, 100),
+      50000
+    );
+
+    const chave = `sigam:boi:${c.lat.toFixed(4)}:${c.lng.toFixed(4)}:${raioMetros}`;
+    const emCache = lerCacheFonte(chave);
+    if (emCache) {
+      return res.json({ ...emCache.payload, cacheHit: true, idadeCacheSegundos: emCache.idadeSegundos });
+    }
+
+    const r = await consultarBoiIncendio({ lat: c.lat, lng: c.lng, raioMetros });
+
+    if (!r.sucesso) {
+      registrarFalhaFonte('/api/sigamgeo/incendios', r.erro);
+      return res.status(502).json(respostaIndisponivel({
+        fonte: r.fonte,
+        erro: r.erro,
+        motivo: r.motivo,
+        consultadoEmUtc: r.consultadoEmUtc,
+        orientacaoOperador: 'Não foi possível consultar os Boletins de Ocorrência de Incêndio. '
+          + 'A existência de registro oficial de incêndio no local NÃO foi verificada.'
+      }));
+    }
+
+    const payload = {
+      sucesso: true,
+      fonte: r.fonte,
+      consultadoEmUtc: r.consultadoEmUtc,
+      raioMetros,
+      quantidade: r.dados.total,
+      registros: r.dados.boletins,
+      mensagem: r.dados.total === 0
+        ? `O SIGAMgeo respondeu e não retornou Boletim de Ocorrência de Incêndio num raio de `
+          + `${raioMetros} m da coordenada.`
+        : undefined
+    };
+
+    gravarCacheFonte(chave, payload, 10 * 60 * 1000);
+    return res.json({ ...payload, cacheHit: false });
+  } catch (err: any) {
+    registrarFalhaFonte('/api/sigamgeo/incendios', err);
     return res.status(500).json({ sucesso: false, erro: mascararSegredos(err.message), registros: [] });
   }
 });

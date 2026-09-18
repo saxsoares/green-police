@@ -284,7 +284,10 @@ export const ReportView: React.FC<ReportViewProps> = ({ ocorrencia }) => {
                       {ocorrencia.contexto.aia.valor.historicoEncontrado ? (
                         <div className="space-y-1">
                           <span className="font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
-                            REINCIDÊNCIA IDENTIFICADA ({ocorrencia.contexto.aia.valor.detalhes.length} registro(s))
+                            {/* NÃO afirmar reincidência: são autuações NO ENTORNO, de autuados
+                                possivelmente distintos e nem sempre relacionadas a fogo.
+                                Reincidência exige mesmo responsável pela gleba — não apurado aqui. */}
+                            AUTUAÇÕES AMBIENTAIS NO ENTORNO ({ocorrencia.contexto.aia.valor.quantidadeRegistros} no raio · {ocorrencia.contexto.aia.valor.detalhes.length} listada(s))
                           </span>
                           <div className="text-[11px] text-slate-600">
                             {ocorrencia.contexto.aia.valor.detalhes.map(d => (
@@ -292,6 +295,11 @@ export const ReportView: React.FC<ReportViewProps> = ({ ocorrencia }) => {
                                 • {d.numeroAia} ({d.dataAutuacao}): {d.infracao} [{d.valorMulta}]
                               </div>
                             ))}
+                          </div>
+                          <div className="text-[11px] text-amber-700 mt-1">
+                            Proximidade geográfica NÃO é reincidência: os autos acima podem ser de
+                            autuados distintos e de natureza não relacionada ao fogo. Requisitar os
+                            autos pelos números de processo para apurar o responsável.
                           </div>
                         </div>
                       ) : ocorrencia.contexto.aia.confiabilidade === 'INDISPONIVEL' ? (

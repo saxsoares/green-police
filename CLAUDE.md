@@ -100,12 +100,31 @@ respondeu" com "a fonte respondeu que não há registro".
 | Overpass | ✅ operacional | rate limit agressivo |
 | **INPE BDQueimadas** | ✅ operacional | **via GeoServer OGC** (`terrabrasilis.dpi.inpe.br/queimadas/geoserver/ows`). A API REST antiga foi desativada. Ver [server/inpeWfs.ts](server/inpeWfs.ts). |
 | **INPE — TI / UC (FUNAI, MMA)** | ✅ operacional | consulta espacial `INTERSECTS` nos polígonos oficiais |
-| **DATAGEO / SIGAMgeo** | ❌ **quebrado** | GeoServer responde `Service WFS is disabled`. A camada de AIA não é consultável por este canal. |
+| **SIGAMgeo Público (SEMIL-SP)** | ✅ operacional | **via ArcGIS REST** em `mapas.semil.sp.gov.br`. AIA (571.769 autos) e BOI de incêndio florestal. O WFS do DATAGEO segue desativado e foi abandonado. Ver [server/sigamgeo.ts](server/sigamgeo.ts). |
 | NASA FIRMS | ⚠️ requer chave | chave via header `x-nasa-map-key` (não mais na query) |
 
 O DATAGEO, hoje quebrado, **declara a indisponibilidade corretamente**. Antes da auditoria ele
 devolvia `sucesso: true` com "nenhum registro encontrado" — uma negativa falsa que ia para o laudo
 marcada como `REAL`.
+
+### SIGAMgeo Público (SEMIL-SP) — o canal atual
+
+`https://mapas.semil.sp.gov.br/server/rest/services` (ArcGIS REST).
+Descoberto no `config.json` do portal SIGAMGEO-PÚBLICO → webmap `9db55297d8594688ad95baa7465877e6`.
+
+| Camada | Uso |
+|---|---|
+| `SIPAI/SIPAI_AIA_LocalOcorrencia_PUBLICO` | Autos de Infração Ambiental da Polícia Ambiental |
+| `SIPAI/SIPAI_BOI_AREA_PUBLICO` | Boletins de Ocorrência de Incêndio florestal (polígono) |
+
+**Use `mapas.semil.sp.gov.br`, não `mapas.infraestruturameioambiente.sp.gov.br`.** O segundo host
+serve o mesmo conteúdo, mas o certificado TLS é emitido para `*.semil.sp.gov.br` — há
+incompatibilidade de nome e o Node recusa a conexão. Não desabilite verificação de TLS para
+contornar: num sistema que produz prova, aceitar certificado inválido abre caminho para
+interceptação do dado pericial.
+
+Camadas ainda não integradas e de interesse óbvio: `TEMATICOS/InventarioFlorestal_2020`
+(cobertura vegetal), `SIGAM/Areas_Protegidas_Amortecimento` (zonas de amortecimento).
 
 ### GeoServer do INPE — o canal atual
 
@@ -166,6 +185,9 @@ ao operador — **não preencha com valor plausível**:
 - **Geometria do CAR** — sem integração com o SICAR. Por isso o mapa tático **não desenha** perímetro
   de propriedade: desenhar um polígono arbitrário levaria à identificação do proprietário errado.
 - **Autorização de queima controlada** — sem integração com cadastros estaduais.
+- **Área queimada em hectares** — o BOI do SIGAMgeo traz o polígono do incêndio, mas o campo
+  `AreaAbrangida` é CATEGÓRICO (`Dentro` / `Entorno`), não medida. Calcular a área exigiria
+  processar a geometria do polígono, o que ainda não é feito.
 
 ## 8. Pontos sensíveis
 

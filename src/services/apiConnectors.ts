@@ -90,18 +90,21 @@ export const CATALOGO_APIS_PUBLICAS: ApiPublicaInfo[] = [
   },
   {
     id: 'sigamgeo-semil',
-    nome: 'SIGAMgeo / DATAGEO (SEMIL-SP)',
+    nome: 'SIGAMgeo Público (SEMIL-SP)',
     orgaoOuFornecedor: 'Secretaria de Meio Ambiente, Infraestrutura e Logística de SP (SEMIL / CETESB)',
-    tipoDado: 'WFS: AIAs (Autos de Infração Ambiental), APPs, Vegetação Nativa, UCs e CAR-SP',
-    endpointUrl: '/api/sigamgeo-wfs ou https://datageo.ambiente.sp.gov.br/geoserver/wfs',
+    tipoDado: 'Autos de Infração Ambiental e Boletins de Ocorrência de Incêndio florestal',
+    endpointUrl: '/api/sigamgeo/aia e /api/sigamgeo/incendios → https://mapas.semil.sp.gov.br/server/rest/services',
     autenticacao: 'Aberta / Sem Chave',
-    status: 'Requer Credencial',
-    descricao: 'Infraestrutura de Dados Espaciais Ambientais de SP. ATENÇÃO: o GeoServer do DATAGEO '
-      + 'responde atualmente "Service WFS is disabled" — o serviço WFS público está desativado, e a '
-      + 'camada de AIA NÃO é consultável por este canal. Cobertura restrita ao Estado de São Paulo. '
-      + 'Enquanto o WFS estiver desativado, o histórico de autuação deve ser obtido por certidão junto '
-      + 'à CETESB/SEMIL.',
-    beneficioPolicial: 'Prova de reincidência de autuações anteriores do autuado na mesma gleba para fundamentar dolo eventual.'
+    status: 'Ativo',
+    descricao: 'SIGAMgeo PÚBLICO da SEMIL-SP, via ArcGIS REST. Entrega 571.769 Autos de Infração '
+      + 'Ambiental lavrados pela Polícia Ambiental (número do processo, infração, data, multa e área '
+      + 'degradada) e 1.383 Boletins de Ocorrência de Incêndio florestal com o polígono da área '
+      + 'atingida e a indicação de incidência em unidade de conservação ou zona de amortecimento. '
+      + 'Substitui o WFS do DATAGEO, desativado na origem. Cobertura restrita ao Estado de '
+      + 'São Paulo — fora dele a camada é declarada como não coberta, não como ausência de registro.',
+    beneficioPolicial: 'Localiza autuações ambientais anteriores no entorno do fato, com número de '
+      + 'processo para requisição dos autos, e registro oficial de incêndio com área apurada pelo órgão — '
+      + 'distinta da projeção do modelo. Autuados anonimizados na exibição (LGPD).'
   },
   {
     id: 'brasil-mais-mjsp',
@@ -651,42 +654,101 @@ export async function fetchIbgeMunicipios(uf: string = 'SP'): Promise<Array<{ id
   return [];
 }
 
-/**
- * Consulta dados do SIGAMgeo / DATAGEO SP
- */
-export async function fetchSigamgeoWfsData(coords: CoordenadaGeo): Promise<{
+export interface AutoInfracaoAmbiental {
+  numeroProcesso: string | null;
+  anoProcesso: string | null;
+  dataInfracaoUtc: string | null;
+  infracao: string | null;
+  classeInfracao: string | null;
+  natureza: string | null;
+  municipio: string | null;
+  situacao: string | null;
+  valorMulta: number | null;
+  areaDegradadaHa: number | null;
+  numeroBoletim: string | null;
+  autuadoAnonimizado: string | null;
+  distanciaMetros: number | null;
+}
+
+export interface BoletimIncendio {
+  numeroBoi: string | null;
+  anoBoi: string | null;
+  dataDeteccaoUtc: string | null;
+  municipio: string | null;
+  unidade: string | null;
+  orgaoGestor: string | null;
+  categoria: string | null;
+  /** Categórico ("Dentro" / "Entorno") — incidência em UC, NÃO área em hectares. */
+  abrangenciaUnidade: string | null;
+  caracterizacaoArea: string | null;
+  especificacaoLocal: string | null;
+}
+
+export interface RespostaSigam<T> {
   sucesso: boolean;
   fonte: string;
-  registros: any[];
+  consultadoEmUtc?: string;
+  raioMetros?: number;
+  quantidade: number;
+  totalNoRaio?: number;
+  truncado?: boolean;
+  registros: T[];
   mensagem?: string;
   foraDeCobertura?: boolean;
   orientacaoOperador?: string;
-}> {
+}
+
+async function consultarSigam<T>(
+  rota: string,
+  coords: CoordenadaGeo,
+  raioMetros: number,
+  rotulo: string
+): Promise<RespostaSigam<T>> {
   try {
-    const res = await fetch(`/api/sigamgeo-wfs?lat=${coords.lat}&lng=${coords.lng}`);
+    const res = await fetch(`${rota}?lat=${coords.lat}&lng=${coords.lng}&raioMetros=${raioMetros}`);
     const json = await res.json().catch(() => null);
 
-    // O corpo já vem no contrato correto do proxy, inclusive nos casos de falha e de
-    // fora-de-cobertura. Repassar verbatim preserva `sucesso: false`.
+    // O proxy já devolve o contrato correto inclusive em falha e fora-de-cobertura;
+    // repassar verbatim preserva `sucesso: false`.
     if (json) return json;
 
     throw new Error(`Proxy retornou status ${res.status} sem corpo legível`);
   } catch (err: any) {
-    console.warn('Erro ao consultar SIGAMgeo WFS:', err.message);
-
-    // ANTES esta função devolvia `sucesso: true` com "nenhum registro associado ao ponto",
-    // o que fazia uma falha de rede virar afirmação pericial de ausência de autuação —
-    // e o analyzer marcava a camada como REAL.
+    console.warn(`Erro ao consultar ${rotulo}:`, err?.message);
     return {
       sucesso: false,
-      fonte: 'DATAGEO / SEMIL-SP (WFS)',
+      fonte: 'SIGAMgeo Público — SEMIL/SP',
+      quantidade: 0,
       registros: [],
-      mensagem: err?.message || 'Falha de comunicação com o WFS do DATAGEO.',
-      orientacaoOperador: 'O histórico de Auto de Infração Ambiental NÃO foi verificado. '
-        + 'Consulte datageo.ambiente.sp.gov.br ou requisite certidão à CETESB/SEMIL antes de '
-        + 'afirmar ausência de reincidência no laudo.'
+      mensagem: err?.message || 'Falha de comunicação com o SIGAMgeo.',
+      orientacaoOperador: `${rotulo} NÃO foi verificado. Consulte mapas.semil.sp.gov.br `
+        + 'ou requisite certidão à CETESB/SEMIL antes de concluir.'
     };
   }
+}
+
+/**
+ * Autos de Infração Ambiental num raio da coordenada (SIGAMgeo Público / SEMIL-SP).
+ * O raio é declarado na resposta: reincidência sem distância explícita não se sustenta.
+ */
+export async function fetchAiaSigamgeo(
+  coords: CoordenadaGeo,
+  raioMetros: number = 2000
+): Promise<RespostaSigam<AutoInfracaoAmbiental>> {
+  return consultarSigam<AutoInfracaoAmbiental>(
+    '/api/sigamgeo/aia', coords, raioMetros, 'O histórico de Auto de Infração Ambiental');
+}
+
+/**
+ * Boletins de Ocorrência de Incêndio florestal cujo polígono alcança a coordenada.
+ * É registro OFICIAL do órgão — distinto da projeção do modelo de propagação.
+ */
+export async function fetchIncendiosBoi(
+  coords: CoordenadaGeo,
+  raioMetros: number = 5000
+): Promise<RespostaSigam<BoletimIncendio>> {
+  return consultarSigam<BoletimIncendio>(
+    '/api/sigamgeo/incendios', coords, raioMetros, 'O registro oficial de incêndio no local');
 }
 
 /**

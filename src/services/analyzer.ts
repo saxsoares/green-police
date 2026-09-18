@@ -19,7 +19,8 @@ import {
   fetchFocosInpe,
   fetchLiveMeteorology,
   fetchOsmOverpassFeatures,
-  fetchSigamgeoWfsData
+  fetchAiaSigamgeo,
+  fetchIncendiosBoi
 } from './apiConnectors';
 import { generateCustodyBlock } from './crypto';
 import { getQuadrantName, modelFireSpread } from './geoCalculations';
@@ -30,6 +31,13 @@ const RAIO_OVERPASS_METROS = 3000;
 
 /** Raio de busca de focos orbitais em torno da coordenada da ocorrência. */
 const RAIO_FOCOS_KM = 35;
+
+/** Raio de busca de Autos de Infração Ambiental em torno da coordenada.
+ *  É declarado no laudo: proximidade sem distância explícita não sustenta reincidência. */
+const RAIO_AIA_METROS = 2000;
+
+/** Raio de busca de Boletins de Ocorrência de Incêndio florestal. */
+const RAIO_BOI_METROS = 5000;
 
 const TIPO_AREA_LEGIVEL: Record<string, string> = {
   TERRA_INDIGENA: 'Terra Indígena — FUNAI',
@@ -147,17 +155,30 @@ export async function processarOcorrencia(
   const temHidrografia = geoFeatures.hidrografia.length > 0;
   const cursoPrincipal = temHidrografia ? geoFeatures.hidrografia[0] : null;
 
-  // 4. Consulta ao SIGAMgeo / DATAGEO SP
-  const sigamResult = await fetchSigamgeoWfsData(coords);
+  // 4. SIGAMgeo Público (SEMIL-SP): autos de infração e boletins de incêndio
+  //    O canal antigo era o WFS do DATAGEO, desativado na origem.
+  const [sigamResult, incendiosResult] = await Promise.all([
+    fetchAiaSigamgeo(coords, RAIO_AIA_METROS),
+    fetchIncendiosBoi(coords, RAIO_BOI_METROS)
+  ]);
+
   const aiaHistorico = {
     historicoEncontrado: sigamResult.registros.length > 0,
-    quantidadeRegistros: sigamResult.registros.length,
-    detalhes: sigamResult.registros.map((r: any) => ({
-      numeroAia: r.properties?.numero_aia || r.id || 'AIA-EM-VERIFICACAO',
-      dataAutuacao: r.properties?.data_autuacao || 'Data sob confirmação',
-      infracao: r.properties?.descricao_infracao || 'Infração registrada no SIGAMgeo',
-      valorMulta: r.properties?.valor_multa ? `R$ ${r.properties.valor_multa}` : undefined,
-      reincidencia: true
+    quantidadeRegistros: sigamResult.totalNoRaio ?? sigamResult.registros.length,
+    detalhes: sigamResult.registros.slice(0, 8).map(r => ({
+      numeroAia: r.numeroProcesso
+        ? `${r.numeroProcesso}${r.anoProcesso ? '/' + r.anoProcesso : ''}`
+        : 'Processo não informado pela fonte',
+      dataAutuacao: r.dataInfracaoUtc
+        ? r.dataInfracaoUtc.slice(0, 10)
+        : 'Data não informada pela fonte',
+      infracao: r.infracao || 'Infração não detalhada pela fonte',
+      valorMulta: typeof r.valorMulta === 'number'
+        ? `R$ ${r.valorMulta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        : undefined,
+      // Reincidência é conclusão jurídica, não atributo do registro: depende de o
+      // autuado ser o MESMO responsável pela gleba, o que este sistema não apura.
+      reincidencia: false
     }))
   };
 
@@ -176,8 +197,16 @@ export async function processarOcorrencia(
       camada: 'fiscalizacao_aia_sp',
       confiabilidade: sigamResult.sucesso ? 'REAL' : 'INDISPONIVEL',
       dataConsultaUtc: new Date().toISOString(),
-      observacoes: aiaHistorico.historicoEncontrado
-        ? `Identificado(s) ${aiaHistorico.quantidadeRegistros} registro(s) de autuação ambiental na consulta pública espacial.`
+      observacoes: !sigamResult.sucesso
+        ? `Consulta ao SIGAMgeo NÃO realizada (${sigamResult.mensagem || 'fonte indisponível'}). `
+          + (sigamResult.orientacaoOperador || 'O histórico de autuação não foi verificado.')
+        : aiaHistorico.historicoEncontrado
+        ? `Identificado(s) ${aiaHistorico.quantidadeRegistros} Auto(s) de Infração Ambiental num raio de `
+          + `${RAIO_AIA_METROS} m da coordenada, na base pública da Polícia Ambiental (SEMIL-SP). `
+          + `O mais próximo está a ${sigamResult.registros[0]?.distanciaMetros ?? '?'} m. `
+          + 'ATENÇÃO: proximidade geográfica NÃO é reincidência. A reincidência exige que o autuado '
+          + 'seja o mesmo responsável pela gleba, o que este sistema não apura — requisitar os autos '
+          + 'pelos números de processo listados. Autuados exibidos de forma anonimizada (LGPD).'
         : 'Nenhum Auto de Infração Ambiental (AIA) anterior localizado para as coordenadas informadas nas bases abertas.'
     },
     /**
@@ -370,7 +399,11 @@ export async function processarOcorrencia(
       coordenadaPontoOrigem: `Latitude: ${coords.lat.toFixed(6)} | Longitude: ${coords.lng.toFixed(6)} (WGS84) — Ponto reportado de anomalia térmica.`,
       verificacaoMaquinario: `Inspeção do maquinário agrícola em operação na área (tratores, implementos, atomizadores) quanto à conformidade de abafador e dispositivos de fagulhas.`,
       confrontoHistoricoAia: aiaHistorico.historicoEncontrado
-        ? `CONFRONTAÇÃO CADASTRAL: Constam registros na base pública (${aiaHistorico.detalhes.map(d => d.numeroAia).join(', ')}). Averiguar cumprimento de termos de embargo ou sanções anteriores.`
+        ? `CONFRONTAÇÃO CADASTRAL: constam ${aiaHistorico.quantidadeRegistros} Auto(s) de Infração `
+          + `Ambiental num raio de ${RAIO_AIA_METROS} m na base pública da Polícia Ambiental `
+          + `(${aiaHistorico.detalhes.slice(0, 4).map(d => d.numeroAia).join(', ')}). `
+          + `Requisitar os autos para identificar o autuado e averiguar embargo ou sanção vigente. `
+          + `ATENÇÃO: proximidade não estabelece reincidência do responsável por esta gleba.`
         : `Vistoriar in loco a existência, manutenção e largura dos aceiros perimetrais obrigatórios nos limites da propriedade e com faixas de servidão.`,
       orientacaoColetaVestigios: `Preservar o vértice em V do foco inicial para determinação do ponto de ignição primário. Coletar amostras de solo/fuligem caso haja indícios de uso de acelerantes de combustão.`
     }
