@@ -18,6 +18,8 @@ import { ApiConnectorsView } from './components/views/ApiConnectorsView';
 import { DecisionsView } from './components/views/DecisionsView';
 import { CoordenadaGeo, OcorrenciaCompleta, OcorrenciaInput } from './types';
 import { processarOcorrencia } from './services/analyzer';
+import type { EtapaProcessamento } from './services/analyzer';
+import { OverlayProcessamento } from './components/OverlayProcessamento';
 import { fetchLiveMeteorology, reverseGeocodeMunicipio } from './services/apiConnectors';
 import { renderRelatorioMarkdown } from './services/reportRenderer';
 import { aplicarTema, carregarTema, salvarTema, Tema } from './services/tema';
@@ -52,6 +54,9 @@ export default function App() {
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  // Etapa corrente da análise, para a sobreposição de progresso. A instrução
+  // encadeia consultas a fontes externas e leva alguns segundos.
+  const [etapaProcessamento, setEtapaProcessamento] = useState<EtapaProcessamento | null>(null);
   const [isRefreshingMeteo, setIsRefreshingMeteo] = useState<boolean>(false);
   const [currentUtc, setCurrentUtc] = useState<string>('');
 
@@ -202,7 +207,7 @@ export default function App() {
           + 'A existência de autorização de queima controlada não foi verificada: o sistema não possui '
           + 'integração com os cadastros estaduais de queima autorizada.'
       };
-      const processed = await processarOcorrencia(demoInput);
+      const processed = await processarOcorrencia(demoInput, undefined, setEtapaProcessamento);
       setListaOcorrencias(prev => [processed, ...prev.filter(o => o.input.id !== processed.input.id)]);
       setActiveOcorrenciaId(processed.input.id);
       await persistirNaBase(processed);
@@ -212,6 +217,7 @@ export default function App() {
       alert('Não foi possível carregar o caso de teste.');
     } finally {
       setIsLoading(false);
+      setEtapaProcessamento(null);
     }
   };
 
@@ -219,7 +225,7 @@ export default function App() {
   const handleProcessIncident = async (input: OcorrenciaInput) => {
     setIsLoading(true);
     try {
-      const processed = await processarOcorrencia(input);
+      const processed = await processarOcorrencia(input, undefined, setEtapaProcessamento);
       setListaOcorrencias(prev => [processed, ...prev.filter(o => o.input.id !== processed.input.id)]);
       setActiveOcorrenciaId(processed.input.id);
       await persistirNaBase(processed);
@@ -229,6 +235,7 @@ export default function App() {
       alert('Falha ao processar a ocorrência. Verifique os dados inseridos.');
     } finally {
       setIsLoading(false);
+      setEtapaProcessamento(null);
     }
   };
 
@@ -309,7 +316,7 @@ export default function App() {
           + 'pela ilicitude da conduta.'
       };
 
-      const processed = await processarOcorrencia(input);
+      const processed = await processarOcorrencia(input, undefined, setEtapaProcessamento);
       setListaOcorrencias(prev => [processed, ...prev.filter(o => o.input.id !== processed.input.id)]);
       setActiveOcorrenciaId(processed.input.id);
       await persistirNaBase(processed);
@@ -325,6 +332,7 @@ export default function App() {
       alert('Falha ao ingerir o foco selecionado. Verifique a conexão com as fontes e tente novamente.');
     } finally {
       setIsLoading(false);
+      setEtapaProcessamento(null);
     }
   };
 
@@ -332,6 +340,9 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen flex bg-slate-50 text-slate-800 overflow-hidden font-sans antialiased">
+      {/* Fora do <main>: a análise pode ser disparada de qualquer aba. */}
+      <OverlayProcessamento visivel={isLoading} etapa={etapaProcessamento} />
+
       {/* Menu Lateral Esquerdo */}
       <Sidebar
         activeTab={activeTab}
@@ -376,6 +387,7 @@ export default function App() {
             <SatellitesView
               currentCoords={currentCoords}
               onSelectFocoToIngest={handleSelectFocoFromSatellites}
+              isLoading={isLoading}
             />
           )}
 

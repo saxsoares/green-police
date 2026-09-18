@@ -45,12 +45,51 @@ const TIPO_AREA_LEGIVEL: Record<string, string> = {
   UC_ESTADUAL: 'Unidade de Conservação estadual'
 };
 
+/**
+ * Etapa corrente do processamento, reportada à interface.
+ *
+ * A instrução de um dossiê consulta cinco fontes externas em sequência e leva
+ * alguns segundos. Sem esse relato o operador fica sem retorno e reclica o
+ * botão — o que abriria um segundo dossiê, com segundo registro de custódia.
+ */
+export interface EtapaProcessamento {
+  indice: number;
+  total: number;
+  rotulo: string;
+}
+
+/** Ordem exata das etapas de `processarOcorrencia`. */
+const ETAPAS_PROCESSAMENTO: readonly string[] = [
+  'Consultando a meteorologia do instante do fato (Open-Meteo)',
+  'Buscando focos orbitais no INPE BDQueimadas',
+  'Verificando incidência em Terra Indígena e Unidade de Conservação',
+  'Mapeando hidrografia e vias de acesso (OpenStreetMap)',
+  'Consultando autos de infração e boletins de incêndio (SIGAMgeo/SP)',
+  'Montando o contexto ambiental do dossiê',
+  'Modelando a propagação (Rothermel e elipse de Alexander)',
+  'Redigindo as diretrizes táticas por força',
+  'Elaborando a instrução forense e o enquadramento preliminar',
+  'Selando a cadeia de custódia (SHA-256)'
+];
+
 export async function processarOcorrencia(
   input: OcorrenciaInput,
-  meteoOverride?: Partial<Meteorologia>
+  meteoOverride?: Partial<Meteorologia>,
+  onEtapa?: (etapa: EtapaProcessamento) => void
 ): Promise<OcorrenciaCompleta> {
   const coords = input.coordenadas;
 
+  // Índice explícito em cada ponto de chamada: se uma etapa for inserida ou
+  // removida no futuro, o desencontro aparece aqui e não num contador implícito.
+  const etapa = (indice: number) => {
+    onEtapa?.({
+      indice,
+      total: ETAPAS_PROCESSAMENTO.length,
+      rotulo: ETAPAS_PROCESSAMENTO[indice - 1]
+    });
+  };
+
+  etapa(1);
   // 1. Obter Meteorologia Real (Open-Meteo)
   let meteo: Meteorologia;
   if (meteoOverride && meteoOverride.ventoVelocidadeKmH !== undefined) {
@@ -76,6 +115,7 @@ export async function processarOcorrencia(
     meteo = await fetchLiveMeteorology(coords);
   }
 
+  etapa(2);
   // 2. Focos Reais de Satélite — INPE BDQueimadas via GeoServer OGC
   // Consulta por bounding box em torno da coordenada (não mais por UF inteira), o que
   // reduz o volume e devolve exatamente a vizinhança pericialmente relevante.
@@ -125,6 +165,7 @@ export async function processarOcorrencia(
     }
   }
 
+  etapa(3);
   // 2.1 Incidência em Terra Indígena / Unidade de Conservação (consulta espacial real)
   const areasProtegidas = await fetchAreasProtegidas(coords);
 
@@ -149,12 +190,14 @@ export async function processarOcorrencia(
     ];
   }
 
+  etapa(4);
   // 3. Hidrografia e Vias Reais no Entorno (OpenStreetMap Overpass API)
   const geoFeatures = await fetchOsmOverpassFeatures(coords, RAIO_OVERPASS_METROS);
 
   const temHidrografia = geoFeatures.hidrografia.length > 0;
   const cursoPrincipal = temHidrografia ? geoFeatures.hidrografia[0] : null;
 
+  etapa(5);
   // 4. SIGAMgeo Público (SEMIL-SP): autos de infração e boletins de incêndio
   //    O canal antigo era o WFS do DATAGEO, desativado na origem.
   const [sigamResult, incendiosResult] = await Promise.all([
@@ -215,6 +258,7 @@ export async function processarOcorrencia(
     ?? areasProtegidas.areas.find(a => a.tipo === 'UC_ESTADUAL')
     ?? null;
 
+  etapa(6);
   // 5. Contexto Ambiental (100% livre de dados inventados)
   const contexto: ContextoAmbiental = {
     aia: {
@@ -414,6 +458,7 @@ export async function processarOcorrencia(
     }
   };
 
+  etapa(7);
   // 6. Modelagem de Propagação Elíptica com Base nos Parâmetros Reais
   const projecao = modelFireSpread({
     origin: coords,
@@ -428,6 +473,7 @@ export async function processarOcorrencia(
   const azimuteAvanco = projecao.manchas.t1h.azimutePropagacaoGraus;
   const quadranteAvanco = getQuadrantName(azimuteAvanco);
 
+  etapa(8);
   // 7. Diretrizes Táticas Multiagências utilizando Feições Reais Mapeadas
   const viasMapeadas = geoFeatures.vias.map(v => v.nome).filter(Boolean);
   const viaPrincipal = viasMapeadas.length > 0 ? viasMapeadas[0] : 'Estrada de Acesso Rural / Vicinal Local';
@@ -493,6 +539,7 @@ export async function processarOcorrencia(
     }
   };
 
+  etapa(9);
   // 8. Instrução Forense e Tipificação Penal Preliminar
 
   // Inventário explícito do que NÃO foi apurado. Vai para a ressalva do laudo para que
@@ -619,6 +666,7 @@ export async function processarOcorrencia(
     }
   };
 
+  etapa(10);
   // 9. Cadeia de Custódia Determinística (SHA-256)
   const geoRefString = `LAT=${coords.lat.toFixed(6)};LNG=${coords.lng.toFixed(6)};MUNICIPIO=${input.municipio}-${input.uf};COMARCA=${input.comarca}`;
   const carString = `CAR=${contexto.car.valor.codigoCar};STATUS=${contexto.car.valor.status}`;

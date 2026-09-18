@@ -48,6 +48,8 @@ import { isoDeAquisicaoFirms } from '../../services/apiConnectors';
 
 interface SatellitesViewProps {
   currentCoords: CoordenadaGeo;
+  /** Análise em curso: os botões de ingestão travam para não abrir dossiê duplicado. */
+  isLoading?: boolean;
   onSelectFocoToIngest: (foco: {
     lat: number;
     lng: number;
@@ -62,7 +64,8 @@ interface SatellitesViewProps {
 
 export const SatellitesView: React.FC<SatellitesViewProps> = ({
   currentCoords,
-  onSelectFocoToIngest
+  onSelectFocoToIngest,
+  isLoading = false
 }) => {
   const [subTab, setSubTab] = useState<'sipam' | 'inpe' | 'nasa' | 'comparativo'>('sipam');
 
@@ -916,10 +919,20 @@ export const SatellitesView: React.FC<SatellitesViewProps> = ({
                                 municipio: evento.municipio || undefined
                               })
                             }
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs transition-colors"
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                           >
-                            <span>Instruir Dossiê Pericial</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
+                            {isLoading ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                <span>Instruindo dossiê...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Instruir Dossiê Pericial</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </>
+                            )}
                           </button>
                         </div>
                       </div>
@@ -991,10 +1004,20 @@ export const SatellitesView: React.FC<SatellitesViewProps> = ({
                                   frp: f.frp
                                 })
                               }
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors"
+                              disabled={isLoading}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                              <span>Instruir Laudo</span>
-                              <ArrowRight className="w-3 h-3" />
+                              {isLoading ? (
+                                <>
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                  <span>Instruindo dossiê...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Instruir Laudo</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </>
+                              )}
                             </button>
                           </td>
                         </tr>
@@ -1148,10 +1171,20 @@ export const SatellitesView: React.FC<SatellitesViewProps> = ({
                     });
                     setSelectedEventoModal(null);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs"
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <span>Instruir Ocorrência com este Evento</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Instruindo ocorrência...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Instruir Ocorrência com este Evento</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -1330,10 +1363,20 @@ export const SatellitesView: React.FC<SatellitesViewProps> = ({
                                 frp: f.frp ?? undefined
                               })
                             }
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded bg-sky-600 hover:bg-sky-700 text-white font-medium transition-colors"
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded bg-sky-600 hover:bg-sky-700 text-white font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                           >
-                            <span>Instruir Laudo</span>
-                            <ArrowRight className="w-3 h-3" />
+                            {isLoading ? (
+                              <>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                <span>Instruindo dossiê...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Instruir Laudo</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </>
+                            )}
                           </button>
                         </td>
                       </tr>
@@ -1697,10 +1740,20 @@ export const SatellitesView: React.FC<SatellitesViewProps> = ({
                                   frp: f.frp
                                 })
                               }
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded bg-sky-600 hover:bg-sky-700 text-white font-medium transition-colors"
+                              disabled={isLoading}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded bg-sky-600 hover:bg-sky-700 text-white font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                              <span>Instruir Laudo</span>
-                              <ArrowRight className="w-3 h-3" />
+                              {isLoading ? (
+                                <>
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                  <span>Instruindo dossiê...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Instruir Laudo</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </>
+                              )}
                             </button>
                           </td>
                         </tr>
