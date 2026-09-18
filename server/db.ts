@@ -66,7 +66,30 @@ export function inicializarBanco(): Database.Database {
   if (db) return db;
 
   const caminho = resolverCaminhoBanco();
-  fs.mkdirSync(path.dirname(caminho), { recursive: true });
+  const diretorio = path.dirname(caminho);
+
+  try {
+    fs.mkdirSync(diretorio, { recursive: true });
+    // Falha cedo e com diagnóstico: um SQLITE_CANTOPEN cru não diz ao operador
+    // que o problema é permissão de escrita no diretório montado.
+    fs.accessSync(diretorio, fs.constants.W_OK);
+  } catch (err: any) {
+    const uid = typeof process.getuid === 'function' ? process.getuid() : 'n/d';
+    const gid = typeof process.getgid === 'function' ? process.getgid() : 'n/d';
+    throw new Error(
+      [
+        `Não foi possível abrir a base pericial em ${caminho}.`,
+        `Diretório: ${diretorio}`,
+        `Processo rodando como uid=${uid} gid=${gid}`,
+        `Causa: ${err.message}`,
+        '',
+        'Em Docker isto costuma ser propriedade do bind mount: a pasta ./data do host',
+        'pertence a root e o contêiner roda sem privilégio. Corrija no host com:',
+        '  sudo chown -R 1000:1000 ./data',
+        'e suba novamente com: docker compose up -d --build'
+      ].join('\n')
+    );
+  }
 
   db = new Database(caminho);
 

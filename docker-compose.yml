@@ -20,7 +20,10 @@ services:
     container_name: simia-verde
     restart: unless-stopped
     ports:
-      - "${SIMIA_PORT:-3000}:3000"
+      # Endereço de bind EXPLÍCITO. Padrão 0.0.0.0 (acessível na rede da unidade).
+      # Para expor apenas localmente e colocar um nginx/proxy reverso na frente,
+      # defina SIMIA_BIND=127.0.0.1 no .env.
+      - "${SIMIA_BIND:-0.0.0.0}:${SIMIA_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -58,7 +61,7 @@ services:
     container_name: simia-verde-dev
     command: npm run dev
     ports:
-      - "${SIMIA_DEV_PORT:-5173}:3000"
+      - "${SIMIA_BIND:-0.0.0.0}:${SIMIA_DEV_PORT:-5173}:3000"
     environment:
       NODE_ENV: development
       PORT: 3000

@@ -42,11 +42,18 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist         ./dist
 COPY --from=builder /app/package.json ./package.json
 
-# Volume da base pericial. Propriedade do usuário `node` para que o processo
-# não privilegiado consiga gravar o arquivo SQLite e os arquivos WAL.
+# Propriedade do código da aplicação. ATENÇÃO: isto NÃO resolve o diretório de
+# dados quando ele é um bind mount — o mount substitui a pasta em tempo de
+# execução e traz a propriedade do host. Quem trata disso é o entrypoint.
 RUN mkdir -p /app/data && chown -R node:node /app
 
-USER node
+# O entrypoint sobe como root apenas para garantir que a base pericial seja
+# gravável e então rebaixa o privilégio para `node` via setpriv. A aplicação
+# nunca roda como root.
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 EXPOSE 3000
 
