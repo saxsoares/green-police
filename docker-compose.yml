@@ -1,0 +1,78 @@
+# -------------------------------------------------------------
+# SIMIA-Verde — Orquestração local
+#
+#   docker compose up -d                          # produção local (porta 3000)
+#   docker compose --profile dev up -d            # desenvolvimento com HMR (porta 5173)
+#   docker compose logs -f simia
+#   docker compose down                           # preserva a base pericial em ./data
+#
+# A base é SQLite — um arquivo, não um serviço. Por isso não há contêiner de banco:
+# a persistência é um bind mount em ./data (produção) e ./data-dev (desenvolvimento).
+# `docker compose down -v` NÃO apaga esses dados: para descartar, remova a pasta.
+# -------------------------------------------------------------
+
+services:
+  simia:
+    build:
+      context: .
+      target: runtime
+    image: simia-verde:local
+    container_name: simia-verde
+    restart: unless-stopped
+    ports:
+      - "${SIMIA_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Caminho do banco dentro do volume persistente
+      SIMIA_DB_PATH: /app/data/simia.db
+      # Credenciais opcionais. Ausentes, o sistema opera com as fontes 100% públicas
+      # (SIPAM e INPE) e declara as demais camadas como INDISPONIVEL.
+      NASA_FIRMS_MAP_KEY: ${NASA_FIRMS_MAP_KEY:-}
+      BRASIL_MAIS_API_KEY: ${BRASIL_MAIS_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      # Base pericial e livro de cadeia de custódia, em pasta do próprio projeto.
+      # Bind mount (não volume anônimo/nomeado): o arquivo .db fica visível e copiável
+      # em ./data, o que também facilita a preservação da prova.
+      - ./data:/app/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # Perfil de desenvolvimento: código-fonte montado, Vite com HMR, mesma base pericial.
+  # Não sobe com `docker compose up -d` — exige `--profile dev`.
+  simia-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: builder
+    image: simia-verde:dev
+    container_name: simia-verde-dev
+    command: npm run dev
+    ports:
+      - "${SIMIA_DEV_PORT:-5173}:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      SIMIA_DB_PATH: /app/data/simia.db
+      NASA_FIRMS_MAP_KEY: ${NASA_FIRMS_MAP_KEY:-}
+      BRASIL_MAIS_API_KEY: ${BRASIL_MAIS_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - ./src:/app/src
+      - ./server:/app/server
+      - ./server.ts:/app/server.ts
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      # Não há volume para node_modules: como só montamos arquivos e pastas de código,
+      # o /app/node_modules do contêiner (binário Linux do better-sqlite3) não é sobreposto.
+      - ./data-dev:/app/data

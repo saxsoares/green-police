@@ -1,0 +1,320 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+/* =============================================================
+   TEMA ESCURO OPERACIONAL
+   =============================================================
+   A base do sistema usa utilitários Tailwind claros codificados
+   diretamente nos componentes (bg-white, text-slate-700, ...).
+   Em vez de espalhar variantes `dark:` por ~4.700 linhas de view,
+   o tema é aplicado remapeando essas mesmas classes sob
+   `html[data-theme="dark"]`.
+
+   Regra de contraste: superfície e texto são SEMPRE invertidos em
+   par. Nunca escurecer um fundo sem clarear o texto que vive nele,
+   nem clarear texto sobre fundo que continua claro.
+   ============================================================= */
+
+/* =============================================================
+   ESCALA TIPOGRÁFICA
+   =============================================================
+   A interface foi construída com tipografia muito densa: 411 das
+   440 ocorrências de tamanho de fonte estavam entre 10px e 12px,
+   o que é cansativo numa jornada de plantão e ruim em notebook de
+   campo.
+
+   O aumento é aplicado por uma curva, não por um fator único: os
+   tamanhos pequenos — que carregam dado operacional (coordenadas,
+   horários UTC, FRP, selos de confiabilidade) — sobem mais, e os
+   títulos sobem pouco, porque inflá-los quebraria o cabeçalho e as
+   barras de ação em telas menores.
+
+   Alterar aqui vale para os dois temas e para a impressão.
+   ============================================================= */
+@layer utilities {
+  html .text-\[9px\]  { font-size: 11px !important;   line-height: 1.45 !important; }
+  html .text-\[10px\] { font-size: 12px !important;   line-height: 1.45 !important; }
+  html .text-\[11px\] { font-size: 13px !important;   line-height: 1.45 !important; }
+  html .text-xs       { font-size: 14px !important;   line-height: 1.5 !important; }
+  html .text-sm       { font-size: 15.5px !important; line-height: 1.55 !important; }
+  html .text-base     { font-size: 17px !important;   line-height: 1.55 !important; }
+  html .text-lg       { font-size: 19px !important;   line-height: 1.5 !important; }
+  html .text-xl       { font-size: 21px !important;   line-height: 1.45 !important; }
+  html .text-2xl      { font-size: 25px !important;   line-height: 1.35 !important; }
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  html[data-theme="dark"] body {
+    background-color: #0b1220;
+    color: #e2e8f0;
+  }
+}
+
+@layer utilities {
+  /* ---------- SUPERFÍCIES (claro -> escuro) ---------- */
+  html[data-theme="dark"] .bg-white { background-color: #111a2b !important; }
+  html[data-theme="dark"] .bg-slate-50 { background-color: #0f172a !important; }
+  html[data-theme="dark"] .bg-slate-100 { background-color: #1e293b !important; }
+  html[data-theme="dark"] .bg-slate-200 { background-color: #263449 !important; }
+  html[data-theme="dark"] .bg-sky-50 { background-color: #10203a !important; }
+  html[data-theme="dark"] .bg-sky-100 { background-color: #16304f !important; }
+
+  /* ---------- VARIANTES COM OPACIDADE ----------
+     Enumeradas a partir de um inventário do código-fonte. Um fundo claro
+     esquecido aqui vira texto claro sobre superfície clara — texto invisível. */
+  html[data-theme="dark"] .bg-white\/95 { background-color: rgb(17 26 43 / 0.95) !important; }
+
+  html[data-theme="dark"] .bg-slate-50\/50 { background-color: rgb(15 23 42 / 0.6) !important; }
+  html[data-theme="dark"] .bg-slate-50\/70 { background-color: rgb(15 23 42 / 0.75) !important; }
+  html[data-theme="dark"] .bg-slate-50\/80 { background-color: rgb(15 23 42 / 0.85) !important; }
+  html[data-theme="dark"] .bg-slate-50\/40 { background-color: rgb(15 23 42 / 0.5) !important; }
+  html[data-theme="dark"] .bg-slate-200\/50 { background-color: rgb(38 52 73 / 0.6) !important; }
+  html[data-theme="dark"] .bg-slate-900\/60 { background-color: rgb(6 11 22 / 0.7) !important; }
+
+  html[data-theme="dark"] .bg-sky-50\/20,
+  html[data-theme="dark"] .bg-sky-50\/40,
+  html[data-theme="dark"] .bg-sky-50\/50,
+  html[data-theme="dark"] .bg-sky-50\/60,
+  html[data-theme="dark"] .bg-sky-50\/70,
+  html[data-theme="dark"] .bg-sky-50\/80 { background-color: rgb(16 32 58 / 0.75) !important; }
+  html[data-theme="dark"] .bg-sky-100\/70 { background-color: rgb(22 48 79 / 0.8) !important; }
+
+  html[data-theme="dark"] .bg-emerald-50\/10,
+  html[data-theme="dark"] .bg-emerald-50\/20,
+  html[data-theme="dark"] .bg-emerald-50\/30,
+  html[data-theme="dark"] .bg-emerald-50\/40,
+  html[data-theme="dark"] .bg-emerald-50\/50,
+  html[data-theme="dark"] .bg-emerald-50\/70,
+  html[data-theme="dark"] .bg-emerald-50\/80 { background-color: rgb(16 185 129 / 0.12) !important; }
+  html[data-theme="dark"] .bg-emerald-100\/70,
+  html[data-theme="dark"] .bg-emerald-200\/70 { background-color: rgb(16 185 129 / 0.2) !important; }
+
+  html[data-theme="dark"] .bg-amber-50\/50,
+  html[data-theme="dark"] .bg-amber-50\/70 { background-color: rgb(245 158 11 / 0.12) !important; }
+
+  html[data-theme="dark"] .bg-rose-50\/50,
+  html[data-theme="dark"] .bg-rose-50\/60,
+  html[data-theme="dark"] .bg-rose-50\/80 { background-color: rgb(244 63 94 / 0.12) !important; }
+
+  html[data-theme="dark"] .bg-indigo-50\/70 { background-color: rgb(99 102 241 / 0.14) !important; }
+
+  /* ---------- GRADIENTE ----------
+     O banner do SIPAM usa um gradiente claro; as paradas de cor do Tailwind
+     (--tw-gradient-*) não são alcançadas pelos overrides de classe acima, então
+     o gradiente inteiro é substituído por um tom escuro equivalente. */
+  html[data-theme="dark"] .bg-gradient-to-r.from-emerald-50 {
+    background-image: linear-gradient(
+      to right,
+      rgb(16 185 129 / 0.16),
+      rgb(20 184 166 / 0.14),
+      rgb(16 185 129 / 0.08)
+    ) !important;
+  }
+
+  /* Superfícies que JÁ eram escuras no tema claro (blocos de hash) */
+  html[data-theme="dark"] .bg-slate-900 { background-color: #060b16 !important; }
+
+  /* ---------- TEXTO (escuro -> claro) ---------- */
+  html[data-theme="dark"] .text-slate-900 { color: #f1f5f9 !important; }
+  html[data-theme="dark"] .text-slate-800 { color: #e2e8f0 !important; }
+  html[data-theme="dark"] .text-slate-700 { color: #cbd5e1 !important; }
+  html[data-theme="dark"] .text-slate-600 { color: #b3c0d1 !important; }
+  html[data-theme="dark"] .text-slate-500 { color: #9aa8bd !important; }
+  html[data-theme="dark"] .text-slate-400 { color: #8494ab !important; }
+  /* Já eram claros: mantêm-se claros sobre fundo agora escuro */
+  html[data-theme="dark"] .text-slate-300 { color: #cbd5e1 !important; }
+  html[data-theme="dark"] .text-slate-100 { color: #f1f5f9 !important; }
+
+  /* ---------- AZUL INSTITUCIONAL ---------- */
+  html[data-theme="dark"] .text-sky-900 { color: #bae6fd !important; }
+  html[data-theme="dark"] .text-sky-800 { color: #a5dbfb !important; }
+  html[data-theme="dark"] .text-sky-700 { color: #7dd3fc !important; }
+  html[data-theme="dark"] .text-sky-600 { color: #56c5fa !important; }
+  html[data-theme="dark"] .text-sky-500 { color: #38bdf8 !important; }
+  /* Botões sólidos mantêm saturação: texto branco continua legível */
+  html[data-theme="dark"] .bg-sky-600 { background-color: #0369a1 !important; }
+  html[data-theme="dark"] .bg-sky-700 { background-color: #075985 !important; }
+  html[data-theme="dark"] .bg-sky-500 { background-color: #0284c7 !important; }
+
+  /* ---------- SEMÂNTICA DE STATUS ----------
+     Fundo e texto são invertidos em PAR: um selo verde com fundo
+     escurecido e texto emerald-700 original ficaria ilegível. */
+  html[data-theme="dark"] .bg-emerald-50 { background-color: rgb(16 185 129 / 0.14) !important; }
+  html[data-theme="dark"] .bg-emerald-100 { background-color: rgb(16 185 129 / 0.22) !important; }
+  html[data-theme="dark"] .text-emerald-950,
+  html[data-theme="dark"] .text-emerald-900,
+  html[data-theme="dark"] .text-emerald-800,
+  html[data-theme="dark"] .text-emerald-700,
+  html[data-theme="dark"] .text-emerald-600 { color: #6ee7b7 !important; }
+  html[data-theme="dark"] .text-emerald-400 { color: #6ee7b7 !important; }
+  html[data-theme="dark"] .bg-emerald-600 { background-color: #047857 !important; }
+  html[data-theme="dark"] .bg-emerald-700 { background-color: #065f46 !important; }
+
+  html[data-theme="dark"] .bg-amber-50 { background-color: rgb(245 158 11 / 0.14) !important; }
+  html[data-theme="dark"] .bg-amber-100 { background-color: rgb(245 158 11 / 0.22) !important; }
+  html[data-theme="dark"] .text-amber-800,
+  html[data-theme="dark"] .text-amber-700,
+  html[data-theme="dark"] .text-amber-600,
+  html[data-theme="dark"] .text-amber-500 { color: #fcd34d !important; }
+
+  html[data-theme="dark"] .bg-rose-50 { background-color: rgb(244 63 94 / 0.14) !important; }
+  html[data-theme="dark"] .bg-rose-100 { background-color: rgb(244 63 94 / 0.22) !important; }
+  html[data-theme="dark"] .text-rose-900,
+  html[data-theme="dark"] .text-rose-800,
+  html[data-theme="dark"] .text-rose-700,
+  html[data-theme="dark"] .text-rose-600 { color: #fda4af !important; }
+
+  html[data-theme="dark"] .bg-red-50 { background-color: rgb(239 68 68 / 0.14) !important; }
+  /* Avisos de "NÃO VERIFICADO" no laudo: precisam saltar aos olhos */
+  html[data-theme="dark"] .text-red-800,
+  html[data-theme="dark"] .text-red-700,
+  html[data-theme="dark"] .text-red-600 { color: #fca5a5 !important; }
+
+  /* ---------- BORDAS ---------- */
+  html[data-theme="dark"] .border-slate-50,
+  html[data-theme="dark"] .border-slate-100 { border-color: #1e293b !important; }
+  html[data-theme="dark"] .border-slate-200 { border-color: #263449 !important; }
+  html[data-theme="dark"] .border-slate-300 { border-color: #33455e !important; }
+  html[data-theme="dark"] .border-sky-100 { border-color: #1c3a5c !important; }
+  html[data-theme="dark"] .border-sky-200 { border-color: #24496f !important; }
+  html[data-theme="dark"] .border-emerald-100 { border-color: rgb(16 185 129 / 0.25) !important; }
+  html[data-theme="dark"] .border-emerald-200 { border-color: rgb(16 185 129 / 0.35) !important; }
+  html[data-theme="dark"] .border-amber-200 { border-color: rgb(245 158 11 / 0.35) !important; }
+  html[data-theme="dark"] .border-rose-100 { border-color: rgb(244 63 94 / 0.25) !important; }
+  html[data-theme="dark"] .border-rose-200 { border-color: rgb(244 63 94 / 0.35) !important; }
+  html[data-theme="dark"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #1e293b !important;
+  }
+
+  /* Bordas com opacidade (inventário do código-fonte) */
+  html[data-theme="dark"] .border-slate-200\/60,
+  html[data-theme="dark"] .border-slate-200\/70,
+  html[data-theme="dark"] .border-slate-200\/80 { border-color: rgb(38 52 73 / 0.8) !important; }
+  html[data-theme="dark"] .border-sky-100\/70 { border-color: rgb(28 58 92 / 0.8) !important; }
+  html[data-theme="dark"] .border-sky-200\/80 { border-color: rgb(36 73 111 / 0.85) !important; }
+  html[data-theme="dark"] .border-amber-200\/80 { border-color: rgb(245 158 11 / 0.35) !important; }
+  html[data-theme="dark"] .border-rose-200\/80 { border-color: rgb(244 63 94 / 0.35) !important; }
+  html[data-theme="dark"] .border-white\/30 { border-color: rgb(148 163 184 / 0.3) !important; }
+
+  /* ---------- HOVER ---------- */
+  html[data-theme="dark"] .hover\:bg-slate-50:hover { background-color: #17243a !important; }
+  html[data-theme="dark"] .hover\:bg-slate-100:hover { background-color: #1e293b !important; }
+  html[data-theme="dark"] .hover\:bg-sky-50:hover { background-color: #16304f !important; }
+  html[data-theme="dark"] .hover\:bg-sky-100:hover { background-color: #1b3c63 !important; }
+  html[data-theme="dark"] .hover\:bg-sky-50\/40:hover,
+  html[data-theme="dark"] .hover\:bg-sky-100\/70:hover { background-color: rgb(22 48 79 / 0.8) !important; }
+}
+
+/* ---------- CONTROLES DE FORMULÁRIO ----------
+   Sem isto, input/select herdam o branco padrão do navegador e o
+   texto claro do tema fica invisível. */
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background-color: #0f1a2c !important;
+  color: #e2e8f0 !important;
+  border-color: #2a3a52 !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+html[data-theme="dark"] select option {
+  background-color: #0f1a2c;
+  color: #e2e8f0;
+}
+
+/* ---------- LEAFLET ---------- */
+html[data-theme="dark"] .leaflet-popup-content-wrapper,
+html[data-theme="dark"] .leaflet-popup-tip {
+  background: #111a2b;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .leaflet-control-zoom a {
+  background-color: #111a2b;
+  color: #e2e8f0;
+  border-color: #263449;
+}
+
+/* As tiles de mapa claro ofuscam num tema escuro; suavizamos sem
+   distorcer cor (importante: o operador precisa reconhecer feições). */
+html[data-theme="dark"] .leaflet-tile-pane {
+  filter: brightness(0.82) saturate(0.9);
+}
+
+/* =============================================================
+   IMPRESSÃO FORENSE OFICIAL
+   O laudo é impresso e assinado em papel: a impressão é SEMPRE
+   clara, independentemente do tema ativo na tela.
+   ============================================================= */
+@media print {
+  html[data-theme="dark"] {
+    color-scheme: light;
+  }
+
+  html[data-theme="dark"] *,
+  body {
+    background-color: white !important;
+    color: black !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  html[data-theme="dark"] .leaflet-tile-pane {
+    filter: none !important;
+  }
+
+  #sidebar-container,
+  #top-header-bar,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    overflow: visible !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  #main-view-container {
+    overflow: visible !important;
+    height: auto !important;
+  }
+}
+
+/* Custom Scrollbars suaves */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}

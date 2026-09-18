@@ -1,0 +1,19 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Base pericial local (SQLite) — nunca versionar dossiê ou livro de custódia
+data/
+data-dev/
+*.db
+*.db-wal
+*.db-shm
+
+# Artefatos de teste de navegador
+.playwright-mcp/
+shot-*.png

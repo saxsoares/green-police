@@ -1,0 +1,10 @@
+{
+  "name": "Remix SIMIA-Verde SENASP",
+  "description": "Sistema Integrado de Monitoramento, Inteligência Ambiental e Instrução Forense de Queimadas.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
