@@ -183,6 +183,10 @@ ao operador — **não preencha com valor plausível**:
   em `corrompidas`, nunca substituída por objeto plausível.
 - O modelo de propagação roda com **combustível de referência** quando a vegetação não foi
   verificada, e a `ressalvaForense` declara isso. Não remova essa declaração.
+- **Padrões de ignore precisam de barra inicial.** `data/` no `.gitignore` casa em qualquer
+  profundidade e chegou a excluir `src/data/` do repositório — o build quebrava em outra máquina
+  com `Could not resolve '../data/estadosBrasil'`, enquanto passava localmente (o arquivo estava
+  em disco, só não no git). Use `/data/` e `/data-dev/`. Ao ignorar uma pasta da raiz, sempre ancore.
 - O repositório não tem `package-lock.json` (só `bun.lock`), então o build Docker usa `npm install`.
   Para uma ferramenta pericial, build reproduzível é desejável: comitar um lockfile npm fecharia
   essa lacuna de auditabilidade da cadeia de suprimentos.

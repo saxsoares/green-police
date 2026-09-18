@@ -8,8 +8,11 @@ coverage/
 !.env.example
 
 # Base pericial local (SQLite) — nunca versionar dossiê ou livro de custódia
-data/
-data-dev/
+# ATENCAO: a barra INICIAL e obrigatoria. Sem ela, "data/" casa em QUALQUER
+# profundidade e passa a ignorar tambem src/data/ — foi o que excluiu
+# src/data/estadosBrasil.ts do repositorio e quebrou o build em outra maquina.
+/data/
+/data-dev/
 *.db
 *.db-wal
 *.db-shm

@@ -1,6 +1,8 @@
 node_modules
 dist
-data
+# Ancorado na raiz: sem a barra, "data" poderia excluir src/data do contexto de build.
+/data
+/data-dev
 *.db
 *.db-wal
 *.db-shm
