@@ -70,7 +70,25 @@ docker compose down                  # preserva a base (bind mount em ./data)
 
 Não há suíte de testes. `npm run lint` é obrigatório antes de concluir qualquer alteração.
 
-A UI é de **tema claro** institucional (`bg-white`, `bg-sky-50`, `bg-slate-50`), não escuro.
+A UI é de **tema claro** institucional (`bg-white`, `bg-sky-50`, `bg-slate-50`), com alternância
+para escuro pelo rodapé da sidebar.
+
+### Compatibilidade de navegador: Chrome/Edge 109
+
+É a última versão dessas famílias que roda em Windows 7/8.1 — parque ainda presente em estações
+de delegacia. O alvo está declarado em `browserslist` (package.json) e aplicado em
+[vite.config.ts](vite.config.ts) via LightningCSS.
+
+O TailwindCSS 4 emite a paleta em `oklch()` e as variantes de opacidade (`bg-white/70`) em
+`color-mix()` — **ambos exigem Chrome 111+**. No 109 a declaração é inválida e o navegador a
+descarta, e a interface carrega sem cor nem fundo. O LightningCSS converte `oklch` em hex e emite
+fallback RGBA antes de cada `color-mix`, que fica protegido por `@supports`.
+
+O que ele não cobre é a dica de espaço de cor em gradiente (`linear-gradient(to right in oklab,…)`);
+há um `@supports` manual em [index.css](src/index.css) para isso.
+
+**Ao mexer no build ou atualizar o Tailwind, reconfira:** o CSS gerado não pode ter `oklch(` nem
+`color-mix(` fora de `@supports`, nem `in oklab` em gradiente desprotegido.
 
 ## 4. Fontes de dados integradas
 

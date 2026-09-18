@@ -229,7 +229,9 @@ Para a sustentação da denúncia criminal pelo Ministério Público ou emissão
 ### Requisitos Mínimos
 - **Node.js:** Versão 18.x ou 20.x LTS
 - **Gerenciador de Pacotes:** npm (v9+)
-- **Navegador Homologado:** Google Chrome, Microsoft Edge, Mozilla Firefox ou Safari modernos
+- **Navegador Homologado:** Google Chrome e Microsoft Edge a partir da **versão 109**, Mozilla
+  Firefox 115+ ou Safari 15.6+. A versão 109 é a última compatível com Windows 7/8.1 e está
+  contemplada: a compilação gera as cores em formato aceito por ela.
 
 ### Clonagem e Instalação
 ```bash

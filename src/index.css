@@ -2,6 +2,27 @@
 @import "leaflet/dist/leaflet.css";
 
 /* =============================================================
+   COMPATIBILIDADE — Chrome / Edge 109
+   =============================================================
+   109 é a última versão dessas famílias que roda em Windows 7/8.1, parque ainda
+   presente em estações de delegacia e de unidade operacional.
+
+   A paleta em `oklch()` e os modificadores de opacidade em `color-mix()` do
+   TailwindCSS 4 exigem Chrome 111+. O LightningCSS resolve os dois no build
+   (ver vite.config.ts): converte oklch para hex e emite fallback RGBA antes de
+   cada color-mix, que fica protegido por @supports.
+
+   O que o LightningCSS NÃO resolve é a dica de espaço de cor em gradiente:
+   `linear-gradient(to right in oklab, ...)` é inválido no 109 e o gradiente
+   inteiro deixa de pintar. Entre tons claros a diferença entre interpolar em
+   oklab e em sRGB é imperceptível, então o alvo antigo recebe a versão sRGB e
+   o navegador moderno mantém a original.
+   ============================================================= */
+@supports not (background-image: linear-gradient(in oklab, red, blue)) {
+  .bg-gradient-to-r { --tw-gradient-position: to right; }
+}
+
+/* =============================================================
    TEMA ESCURO OPERACIONAL
    =============================================================
    A base do sistema usa utilitários Tailwind claros codificados
