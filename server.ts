@@ -1,10 +1,16 @@
+// Carrega o .env da raiz antes de qualquer leitura de process.env.
+// Sem isto, o arquivo .env era ignorado fora do Docker (em Docker as variáveis
+// chegam pelo compose), e a NASA_FIRMS_MAP_KEY nunca era encontrada localmente.
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import { consultarAreasProtegidas, consultarFocos } from './server/inpeWfs';
+import { consultarAreasProtegidas, consultarFocos, isoDeAquisicaoFirms } from './server/inpeWfs';
 import {
   consultarFonte,
+  gravarCacheFonte,
+  lerCacheFonte,
   deltaGraus,
   mascararSegredos,
   registrarFalhaFonte,
@@ -51,20 +57,31 @@ app.get('/api/satellites/status', async (req, res) => {
 
   let nasaLiveTelemetry: any = null;
   if (hasKey) {
-    const r = await consultarFonte<string>({
-      url: `https://firms.modaps.eosdis.nasa.gov/mapserver/mapkey_status/?MAP_KEY=${activeKey}`,
-      fonte: 'NASA FIRMS (mapkey_status)',
-      formato: 'texto',
-      timeoutMs: 6000
-    });
-    if (r.sucesso) {
-      try {
-        nasaLiveTelemetry = JSON.parse(r.dados);
-      } catch {
-        // A NASA às vezes responde texto puro nesta rota de telemetria.
-      }
+    // A verificação de telemetria TAMBÉM consome uma transação da cota, e esta rota é
+    // chamada toda vez que a aba de satélites é aberta. Cache de 5 minutos: o saldo de
+    // cota não muda de forma relevante nesse intervalo.
+    const chaveTelemetria = `nasa:mapkey_status:${activeKey!.slice(-6)}`;
+    const telemetriaCache = lerCacheFonte(chaveTelemetria);
+
+    if (telemetriaCache) {
+      nasaLiveTelemetry = telemetriaCache.payload;
     } else {
-      registrarFalhaFonte('/api/satellites/status', r.erro);
+      const r = await consultarFonte<string>({
+        url: `https://firms.modaps.eosdis.nasa.gov/mapserver/mapkey_status/?MAP_KEY=${activeKey}`,
+        fonte: 'NASA FIRMS (mapkey_status)',
+        formato: 'texto',
+        timeoutMs: 6000
+      });
+      if (r.sucesso) {
+        try {
+          nasaLiveTelemetry = JSON.parse(r.dados);
+          gravarCacheFonte(chaveTelemetria, nasaLiveTelemetry, 5 * 60 * 1000);
+        } catch {
+          // A NASA às vezes responde texto puro nesta rota de telemetria.
+        }
+      } else {
+        registrarFalhaFonte('/api/satellites/status', r.erro);
+      }
     }
   }
 
@@ -323,6 +340,21 @@ app.get('/api/focos-nasa', async (req, res) => {
       escopoDescricao = `Raio de ${raio} km em torno de [${nLat.toFixed(4)}, ${nLng.toFixed(4)}] nos últimos ${dayRange} dia(s)`;
     }
 
+    // A cota da NASA é de 5.000 transações por 10 minutos e é COMPARTILHADA por toda
+    // a unidade. Antes de gastar uma transação, servimos do cache quando a mesma
+    // consulta foi feita há menos de 5 minutos (dados NRT não mudam nesse intervalo).
+    const chaveCache = `nasa:${chosenSource}:${url.split('/').slice(-2).join(':')}`;
+    const emCache = lerCacheFonte(chaveCache);
+    if (emCache) {
+      return res.json({
+        ...emCache.payload,
+        // Declarado: o laudo registra quando a FONTE foi consultada, não quando a
+        // tela foi aberta. `consultadoEmUtc` preserva o instante original.
+        cacheHit: true,
+        idadeCacheSegundos: emCache.idadeSegundos
+      });
+    }
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'SIMIA-Verde-SENASP/1.0',
@@ -369,7 +401,7 @@ app.get('/api/focos-nasa', async (req, res) => {
       return obj;
     }).filter(it => Number.isFinite(parseFloat(it.latitude)) && Number.isFinite(parseFloat(it.longitude)));
 
-    return res.json({
+    const payload = {
       fonte: `NASA FIRMS (${chosenSource})`,
       sucesso: true,
       requerChave: true,
@@ -377,9 +409,13 @@ app.get('/api/focos-nasa', async (req, res) => {
       sensor: chosenSource,
       escopo: escopoDescricao,
       diasConsultados: dayRange,
+      consultadoEmUtc: new Date().toISOString(),
       quantidade: items.length,
       focos: items
-    });
+    };
+
+    gravarCacheFonte(chaveCache, payload, 5 * 60 * 1000);
+    return res.json({ ...payload, cacheHit: false });
   } catch (err: any) {
     registrarFalhaFonte('/api/focos-nasa', err);
     return res.status(500).json({ sucesso: false, erro: mascararSegredos(err.message), focos: [] });
@@ -918,7 +954,7 @@ app.get('/api/sipam/focos', async (req, res) => {
         // Horário da aquisição ausente fica indefinido — carimbar `new Date()` datava
         // a detecção orbital com o instante da consulta.
         dt_aquisicao: f.dt_aquisicao
-          || (f.acq_date && f.acq_time ? `${f.acq_date}T${f.acq_time}:00Z` : undefined),
+          || isoDeAquisicaoFirms(f.acq_date, f.acq_time),
         bright_ti4: f.bright_ti4,
         bright_ti5: f.bright_ti5,
         daynight: f.daynight

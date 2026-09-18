@@ -409,8 +409,11 @@ export async function fetchSatellitesStatus(mapKey?: string): Promise<{
   };
 }> {
   try {
-    const url = mapKey ? `/api/satellites/status?mapKey=${encodeURIComponent(mapKey)}` : '/api/satellites/status';
-    const res = await fetch(url);
+    // A chave vai por CABEÇALHO, nunca na URL: query string acaba em log de acesso
+    // do servidor, histórico do navegador e em qualquer proxy no caminho.
+    const res = await fetch('/api/satellites/status', {
+      headers: mapKey ? { 'x-nasa-map-key': mapKey } : undefined
+    });
     if (res.ok) {
       return await res.json();
     }
@@ -436,6 +439,30 @@ export async function fetchSatellitesStatus(mapKey?: string): Promise<{
       descricaoAutenticacao: 'Acesso governamental aberto sem token de API.'
     }
   };
+}
+
+/**
+ * Converte o par acq_date/acq_time da NASA FIRMS em timestamp ISO-8601 UTC.
+ *
+ * O FIRMS envia a hora como HHMM SEM zero à esquerda: "334" é 03:34 e "34" é 00:34.
+ * Fatiar a string direto produzia "33:4" na tela e `2026-09-18T33:4:00Z` gravado no
+ * dossiê — um horário de detecção inválido, que é elemento probatório.
+ *
+ * Devolve `undefined` quando os campos faltam ou não formam um instante válido:
+ * horário de detecção nunca é presumido.
+ */
+export function isoDeAquisicaoFirms(acqDate?: string, acqTime?: string): string | undefined {
+  if (!acqDate || acqTime === undefined || acqTime === null || acqTime === '') return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(acqDate)) return undefined;
+
+  const t = String(acqTime).trim().padStart(4, '0');
+  if (!/^\d{4}$/.test(t)) return undefined;
+
+  const hh = Number(t.slice(0, 2));
+  const mm = Number(t.slice(2, 4));
+  if (hh > 23 || mm > 59) return undefined;
+
+  return `${acqDate}T${t.slice(0, 2)}:${t.slice(2, 4)}:00Z`;
 }
 
 export interface FocoNasaDetail {
@@ -487,9 +514,11 @@ export async function fetchFocosNasa(params: {
     if (params.source) search.set('source', params.source);
     if (params.country) search.set('country', params.country);
     if (params.days !== undefined) search.set('days', params.days.toString());
-    if (params.mapKey) search.set('mapKey', params.mapKey);
+    // `mapKey` deliberadamente FORA da query string — segue por cabeçalho abaixo.
 
-    const res = await fetch(`/api/focos-nasa?${search.toString()}`);
+    const res = await fetch(`/api/focos-nasa?${search.toString()}`, {
+      headers: params.mapKey ? { 'x-nasa-map-key': params.mapKey } : undefined
+    });
     if (res.ok) {
       const data = await res.json();
       const rawFocos = Array.isArray(data.focos) ? data.focos : [];

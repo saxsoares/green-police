@@ -70,6 +70,26 @@ const UF_NOME: Record<string, string> = {
   SC: 'SANTA CATARINA', SP: 'SÃO PAULO', SE: 'SERGIPE', TO: 'TOCANTINS'
 };
 
+/**
+ * Converte o par acq_date/acq_time da NASA FIRMS em timestamp ISO-8601 UTC.
+ * O FIRMS envia HHMM SEM zero à esquerda ("334" = 03:34), então concatenar direto
+ * produzia `2026-09-18T334:00Z` — instante inválido no dossiê pericial.
+ * Devolve `undefined` quando não há como formar um horário válido.
+ */
+export function isoDeAquisicaoFirms(acqDate?: string, acqTime?: string): string | undefined {
+  if (!acqDate || acqTime === undefined || acqTime === null || acqTime === '') return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(acqDate)) return undefined;
+
+  const t = String(acqTime).trim().padStart(4, '0');
+  if (!/^\d{4}$/.test(t)) return undefined;
+
+  const hh = Number(t.slice(0, 2));
+  const mm = Number(t.slice(2, 4));
+  if (hh > 23 || mm > 59) return undefined;
+
+  return `${acqDate}T${t.slice(0, 2)}:${t.slice(2, 4)}:00Z`;
+}
+
 export function nomeEstadoPorUf(uf: string): string | null {
   return UF_NOME[uf.toUpperCase()] ?? null;
 }

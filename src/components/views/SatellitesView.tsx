@@ -44,6 +44,7 @@ import {
 } from '../../services/apiConnectors';
 import { ESTADOS_BRASIL } from '../../data/estadosBrasil';
 import type { FocoInpeDetalhe } from '../../services/apiConnectors';
+import { isoDeAquisicaoFirms } from '../../services/apiConnectors';
 
 interface SatellitesViewProps {
   currentCoords: CoordenadaGeo;
@@ -1651,7 +1652,12 @@ export const SatellitesView: React.FC<SatellitesViewProps> = ({
                       return (
                         <tr key={idx} className="hover:bg-sky-50/40 transition-colors">
                           <td className="px-4 py-2.5 font-mono text-slate-700 text-[11px]">
-                            {f.acq_date || 'Hoje'} {f.acq_time ? `${f.acq_time.slice(0, 2)}:${f.acq_time.slice(2, 4)} UTC` : ''}
+                            {(() => {
+                              const iso = isoDeAquisicaoFirms(f.acq_date, f.acq_time);
+                              return iso
+                                ? `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`
+                                : 'horário não informado';
+                            })()}
                           </td>
                           <td className="px-4 py-2.5 font-medium text-slate-800">
                             {f.satellite || 'NOAA-20'} ({f.instrument || 'VIIRS'})
@@ -1687,9 +1693,7 @@ export const SatellitesView: React.FC<SatellitesViewProps> = ({
                                   satelite: `${f.satellite || 'NOAA-20'} VIIRS 375m`,
                                   // Sem acq_date/acq_time a detecção fica sem horário: carimbar "hoje ao meio-dia"
                                   // criava prova falsa sobre quando o fogo foi detectado.
-                                  dataHoraUtc: f.acq_date && f.acq_time
-                                    ? `${f.acq_date}T${f.acq_time.slice(0, 2)}:${f.acq_time.slice(2, 4)}:00Z`
-                                    : undefined,
+                                  dataHoraUtc: isoDeAquisicaoFirms(f.acq_date, f.acq_time),
                                   frp: f.frp
                                 })
                               }

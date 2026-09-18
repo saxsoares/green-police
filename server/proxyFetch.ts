@@ -172,3 +172,54 @@ export function deltaGraus(raioKm: number, latitude: number): { dLat: number; dL
   const dLng = raioKm / (111.32 * Math.max(0.01, Math.abs(cos)));
   return { dLat, dLng };
 }
+
+// -------------------------------------------------------------
+// CACHE DE CURTA DURAÇÃO
+// -------------------------------------------------------------
+/**
+ * Protege cotas de API e reduz latência.
+ *
+ * Existe principalmente pela NASA FIRMS, que limita a 5.000 transações por janela
+ * de 10 minutos: sem cache, um operador navegando entre as sub-abas de satélite
+ * consome a cota da unidade inteira em poucos minutos.
+ *
+ * REGRA PERICIAL: a resposta servida do cache preserva o `consultadoEmUtc` da
+ * consulta ORIGINAL e declara `cacheHit` e a idade em segundos. O laudo precisa
+ * registrar quando a fonte foi efetivamente consultada, não quando a tela foi aberta.
+ */
+interface EntradaCache {
+  expiraEm: number;
+  gravadoEm: number;
+  payload: any;
+}
+
+const cacheFontes = new Map<string, EntradaCache>();
+const CACHE_MAX_ENTRADAS = 200;
+
+export function lerCacheFonte(chave: string): { payload: any; idadeSegundos: number } | null {
+  const e = cacheFontes.get(chave);
+  if (!e) return null;
+
+  const agora = Date.now();
+  if (agora > e.expiraEm) {
+    cacheFontes.delete(chave);
+    return null;
+  }
+
+  return {
+    payload: e.payload,
+    idadeSegundos: Math.round((agora - e.gravadoEm) / 1000)
+  };
+}
+
+export function gravarCacheFonte(chave: string, payload: any, ttlMs: number): void {
+  // Descarta a entrada mais antiga quando o limite é atingido: o cache é uma
+  // otimização, não pode virar vazamento de memória num processo de plantão.
+  if (cacheFontes.size >= CACHE_MAX_ENTRADAS) {
+    const maisAntiga = cacheFontes.keys().next().value;
+    if (maisAntiga !== undefined) cacheFontes.delete(maisAntiga);
+  }
+
+  const agora = Date.now();
+  cacheFontes.set(chave, { payload, gravadoEm: agora, expiraEm: agora + ttlMs });
+}

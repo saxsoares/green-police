@@ -118,43 +118,48 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       id="top-header-bar"
-      className="h-16 bg-white border-b border-sky-100 px-4 sm:px-6 flex items-center justify-between shrink-0 select-none z-30 relative"
+      className="min-h-16 py-2 bg-white border-b border-sky-100 px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0 select-none z-30 relative"
     >
       {/* Seletor de Ocorrência / Dossiê Ativo */}
-      <div className="flex items-center gap-3" ref={dropdownRef}>
+      <div className="flex items-center gap-3 min-w-0 shrink overflow-hidden" ref={dropdownRef}>
         <div className="relative">
           <button
             type="button"
             onClick={() => setDropdownOpen(prev => !prev)}
-            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-left transition-all cursor-pointer ${
+            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-left transition-all cursor-pointer min-w-0 max-w-[30vw] ${
               ocorrencia
                 ? 'bg-slate-50/80 hover:bg-slate-100 border-slate-200'
                 : 'bg-sky-50 hover:bg-sky-100 border-sky-200 text-sky-900'
             }`}
           >
-            <div className="p-1 rounded-md bg-white border border-slate-200/80 text-sky-600 shadow-2xs">
+            <div className="p-1 rounded-md bg-white border border-slate-200/80 text-sky-600 shadow-2xs shrink-0">
               <FolderOpen className="w-3.5 h-3.5" />
             </div>
 
             {ocorrencia ? (
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-800 tracking-tight">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-bold text-slate-800 tracking-tight truncate">
                     {ocorrencia.input.municipio} - {ocorrencia.input.uf}
                   </span>
                   {badge && (
                     <span
-                      className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[10px] font-semibold border ${badge.bg}`}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[10px] font-semibold border whitespace-nowrap shrink-0 ${badge.bg}`}
                     >
                       <span className={`w-1 h-1 rounded-full ${badge.dot}`}></span>
                       {badge.label}
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                  <span>{ocorrencia.input.id}</span>
-                  <span>•</span>
-                  <span>{ocorrencia.input.comarca}</span>
+                {/* Uma linha só: com a tipografia ampliada, ID e comarca quebravam o
+                    cabeçalho em três linhas. O texto completo fica no title. */}
+                <div
+                  className="flex items-center gap-2 text-[10px] text-slate-500 font-mono whitespace-nowrap overflow-hidden"
+                  title={`${ocorrencia.input.id} • ${ocorrencia.input.comarca}`}
+                >
+                  <span className="shrink-0">{ocorrencia.input.id}</span>
+                  <span className="shrink-0">•</span>
+                  <span className="truncate">{ocorrencia.input.comarca}</span>
                 </div>
               </div>
             ) : (
@@ -299,11 +304,11 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Condições Meteorológicas & Ações Rápidas */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0 [&_button]:whitespace-nowrap">
         {/* Estado da base pericial durável (SQLite) */}
         <div
           title={persistencia.title}
-          className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold tracking-wide ${persistencia.cls}`}
+          className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold tracking-wide whitespace-nowrap ${persistencia.cls}`}
         >
           <span className={`w-1.5 h-1.5 rounded-full ${persistencia.dot}`} />
           {persistencia.label}
@@ -312,7 +317,7 @@ export const Header: React.FC<HeaderProps> = ({
         {ocorrencia && (
           <>
             {/* Chips Meteorológicos */}
-            <div className="hidden xl:flex items-center gap-2 bg-slate-50 border border-slate-200/70 px-3 py-1.5 rounded-lg text-xs text-slate-600">
+            <div className="hidden 2xl:flex items-center gap-2 bg-slate-50 border border-slate-200/70 px-3 py-1.5 rounded-lg text-xs text-slate-600 whitespace-nowrap">
               <div className="flex items-center gap-1" title="Velocidade e direção do vento">
                 <Wind className="w-3.5 h-3.5 text-sky-600" />
                 <span className="font-semibold text-slate-700">
